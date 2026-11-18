@@ -1,0 +1,149 @@
+# GymBrô — Plano de desenvolvimento
+
+Base: Documento de Visão, DRS (24 histórias, RN-001 a RN-024, RNF-001 a RNF-012), Análise e Modelagem (classes e MER), mapa de fluxo `fluxo_navegacao.mmd` e o protótipo do Figma com 41 telas (A1–A5, P1–P11, D1–D13, F1–F8, C1–C4).
+
+## 1. Stack
+
+| Camada           | Escolha                                                                                                                         | Por quê (requisito)         |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| App              | React Native + **Expo SDK 58**, TypeScript, **Expo Router**                                                                     | RNF-001, RNF-012, Visão 5.3 |
+| Back-end         | **Supabase**: Postgres, Auth, Storage, Realtime, Edge Functions                                                                 | Visão 5.3, RNF-003, RNF-004 |
+| Dados no app     | TanStack Query (cache e paginação) + Zustand (estado local)                                                                     | RNF-005, RNF-009            |
+| Formulários      | react-hook-form + zod                                                                                                           | mensagens de erro do DRS    |
+| Recursos nativos | expo-location, expo-image-picker, expo-camera, expo-image-manipulator, expo-notifications, expo-secure-store, react-native-maps | notas técnicas das US       |
+| Gestos           | react-native-gesture-handler + reanimated                                                                                       | US-09, RNF-008              |
+| Qualidade        | ESLint + Prettier, Jest (jest-expo)                                                                                             | RNF-012                     |
+
+Todas as bibliotecas acima funcionam no **Expo Go**, com uma exceção: notificações push remotas no Android não funcionam no Expo Go (desde o SDK 53). Para testar a US-21 de verdade, será preciso uma _development build_ (`npx eas-cli build --profile development`). Até lá, use notificações locais.
+
+## 2. Estrutura do código
+
+```
+src/
+  app/                 rotas (cada arquivo = uma tela)
+    (auth)/            A2–A5 — sem sessão (RN-001)
+    (onboarding)/      P1–P8 — logado, sem perfil mínimo (RN-006)
+    (tabs)/            Descobrir, Feed, Publicar, Conexões, Perfil (RNF-008)
+    perfil/[id].tsx    D4
+    chat/[id].tsx      D12
+    ...                modais e telas empilhadas (match, filtros, ranking...)
+  components/ui/       Button, Input, Chip, Card, Text, Screen (componentes do Figma)
+  domain/              regras de negócio puras + testes (senha, idade, match, compatibilidade, sequência)
+  lib/supabase.ts      cliente do Supabase
+  store/               estado global (sessão)
+  theme/               cores, fontes e espaçamentos do protótipo
+supabase/migrations/   SQL do banco gerado a partir do MER
+```
+
+**Regra:** cada tela do Figma vira um arquivo em `src/app`, com o código da tela (ex.: `D1`) e as US no comentário do topo. Hoje elas são telas provisórias navegáveis. Cada sprint troca as telas provisórias pelo layout real.
+
+## 3. Sprints
+
+Sprints de 2 semanas. A ordem segue as dependências das US no DRS (US-01 → US-04 → US-07 → US-08 → US-10 → US-12 …).
+
+### Sprint 0 — Fundação ✅ (feita nesta entrega)
+
+- Projeto Expo com TypeScript, Expo Router, ESLint, Prettier e Jest.
+- Tema com as cores e fontes do Figma (Archivo e Inter).
+- Navegação completa: grupos auth, onboarding e abas, com proteção de rotas.
+- Regras de negócio com testes: RN-002, RN-004, RN-011, RN-012, RN-018 e RN-024.
+- Schema SQL inicial com RLS (`supabase/migrations/0001_schema_inicial.sql`).
+- **Falta fazer (grupo):** criar o projeto no Supabase, rodar o SQL, preencher o `.env` e publicar no GitHub.
+
+### Sprint 1 — Acesso e conta · US-01, US-02, US-03 ✅ (código pronto)
+
+Telas: A1 Splash, A2 Entrar, A3 Recuperar senha, A4 Criar conta, A5 Termos atualizados, P4 Localização, Nova senha, Termos de Uso e Política de Privacidade.
+
+- [x] Cadastro com validação no app e no banco: senha forte (RN-002), e-mail único (RN-003), 18+ (RN-004), aceite obrigatório (RN-005). A data de nascimento tem máscara automática DD/MM/AAAA.
+- [x] Botão "Criar conta" desabilitado até tudo estar preenchido. Erros aparecem ao sair do campo, com as mensagens do DRS.
+- [x] Trigger `criar_usuario` cria o registro em `usuario` e em `aceite_termos` (`supabase/migrations/0002_autenticacao.sql`).
+- [x] Login com bloqueio de 5 minutos após 5 erros (RN-023), via funções `login_bloqueado_ate` e `registrar_tentativa_login`.
+- [x] Recuperar senha com resposta neutra e link que abre a tela "Nova senha" no app.
+- [x] Sessão mantida no cofre seguro (expo-secure-store, RNF-003) e "Sair" com confirmação.
+- [x] Nova versão dos termos bloqueia o app até o aceite (A5).
+- [x] Permissão de localização explicada antes de pedir. Se negada, oferece busca manual e o atalho "Ativar localização".
+- [x] Modo demonstração sem back-end, com as mesmas regras (conta de teste `demo@gymbro.app` / `Gym@2026`).
+- [x] Testes: 40 passando (máscara de data, bloqueio de login e regras anteriores).
+- [x] Projeto Supabase **gymbro** criado (sa-east-1), com os SQL 0001 a 0004 aplicados e as configurações de e-mail feitas. Cadastro, trigger, aceite dos termos, bloqueio de login e vínculo de academia foram testados direto no banco.
+- [ ] **Grupo:** testar os cenários do DRS no celular com contas reais.
+- [ ] Revisar os textos dos Termos e da Política (estão em `src/constants/legal.ts`, marcados como rascunho).
+
+### Sprint 2 — Perfil e academias · US-04, US-05, US-06, US-07 ✅ (código pronto)
+
+Telas: P1–P3 (perfil em 3 etapas), P4 Localização, P5/P6 Academias em lista e mapa, P7 Nenhuma academia, P8 Sugerir academia, P9 Minha academia, P10 Editar perfil, P11 Preferências (D3 Filtros abre a mesma tela).
+
+- [x] Perfil em 3 etapas com rascunho mantido ao voltar. "Continuar" fica desabilitado e mostra o que falta.
+- [x] Fotos da galeria ou câmera, de 1 a 6 (RN-007). Antes do envio, são redimensionadas para 1080 px e comprimidas (RNF-007), e vão para o Supabase Storage (bucket `fotos-perfil`, cada usuário escreve só na própria pasta).
+- [x] A primeira foto é a principal. Para reordenar, toque na foto e use "Definir como principal" ou "Mover para a esquerda/direita".
+- [x] Bio com contador, que fica vermelho acima de 500 caracteres e impede salvar.
+- [x] Perfil salvo de uma vez pela função `salvar_perfil`, que valida a RN-007 também no banco.
+- [x] RN-006 calculada de verdade: sem foto, modalidade, objetivo, período ou academia principal, o app volta para o item que falta.
+- [x] Academias próximas pelo OpenStreetMap (gratuito, sem chave): raio padrão de 5 km, aumentável até 50 km (RN-010), ordenadas pela distância, com endereço e número de pessoas do GymBrô. Também dá para ver no mapa e buscar por nome, bairro ou cidade fora do raio.
+- [x] Academia escolhida vira cache no banco. A função `definir_academia` aplica a RN-009: 1 principal, até 2 secundárias e troca da principal só depois de 7 dias.
+- [x] "Sugerir academia" grava como "Em análise" e já vincula de forma provisória.
+- [x] Editar perfil pergunta "Deseja descartar as alterações?" ao sair sem salvar.
+- [x] Preferências: faixa etária (18+), gêneros, distância de 1 a 50 km, "Somente minha academia" e "Aparecer na descoberta".
+- [x] Testes: 54 passando (etapas do perfil, RN-006, RN-007, RN-009, distâncias).
+- [ ] Reordenar fotos arrastando (o DRS pede arrastar; hoje é por menu). Fica para o acabamento da Sprint 6.
+- [ ] Painel de moderação para aprovar academias sugeridas (fora do app; dá para fazer pelo Table Editor do Supabase mudando `status` para `aprovada`).
+
+### Sprint 3 — Descoberta e match · US-08, US-09, US-10
+
+Telas: D1 Descobrir, D2 Perfil incompleto, D3 Filtros, D4 Perfil completo, D7 É um match!, D8 Limite de curtidas, D9 Sem novos perfis.
+
+- Função SQL `buscar_parceiros()` (security definer): aplica filtros, bloqueios (RN-015), passados há menos de 30 dias (RN-013) e ordena pela compatibilidade (RN-024, mesma fórmula de `src/domain/rules.ts`).
+- Deck de cards com gesture-handler + reanimated.
+- Curtida → trigger no banco cria a `conexao` quando há reciprocidade (RN-011) e o limite de 100 por dia (RN-012).
+
+### Sprint 4 — Conexões, chat e segurança · US-11, US-12, US-13, US-14
+
+Telas: D10/D11 Conexões, D12 Chat, D13 Desfazer conexão, D5/D6 Denunciar e Bloquear, C3 Bloqueados.
+
+- Chat com Supabase Realtime (entrega em até 2 s, RNF-004). RLS: só membros de conexão ativa leem e escrevem (RN-014).
+- Bloqueio desfaz a conexão e esconde tudo dos dois lados (RN-015).
+- Denúncia + suspensão automática com 3 denúncias em 30 dias (RN-016).
+
+### Sprint 5 — Feed e constância · US-15 a US-20
+
+Telas: F1 Feed, F2 Comentários, F3 Excluir check-in, F4 Publicar, F5 Dia concluído, F6 Meu perfil.
+
+- Publicar com câmera ou galeria. O banco marca o 1º post do dia como check-in (RN-017, índice único já criado).
+- Recalcular `estatistica_atividade` com a mesma regra de `src/domain/streak.ts` (RN-018), num trigger ou num agendamento diário.
+- Feed com paginação por cursor e visibilidade (RN-021). Curtidas, comentários (RN-020) e exclusão lógica com recálculo (RN-019).
+
+### Sprint 6 — Engajamento, conta e acabamento · US-21, US-22, US-23, US-24 + RNFs
+
+Telas: F7 Notificações, F8 Ranking, C1 Configurações, C2 Notificações, C4 Excluir conta.
+
+- Notificações: expo-notifications + Expo Push Service (precisa de development build).
+- Ranking semanal da academia (view SQL de segunda a domingo).
+- Privacidade (RN-008, RN-021) e exclusão de conta com 30 dias de carência (RN-022, RNF-002).
+- Modo offline (RNF-009): cache persistido do TanStack Query + fila de envios pendentes.
+- Acessibilidade (RNF-011), medição de desempenho (RNF-005) e testes nos aparelhos (RNF-001).
+- Build com EAS para Android e iOS.
+
+## 4. Forma de trabalho no GitHub
+
+- **Branches:** `main` (sempre funcionando) e uma branch por história: `feature/us-01-cadastro`.
+- **Commits:** curtos e no imperativo, citando a US: `US-01: valida idade mínima no cadastro`.
+- **Pull request** para a `main` com: US atendida, print da tela e `npm run typecheck && npm run lint && npm test` passando.
+- **Issues:** uma por US, com os critérios de aceite (Dado/Quando/Então) do DRS como checklist. Use um GitHub Project em quadro (A fazer / Fazendo / Revisão / Feito) com uma coluna por sprint.
+
+## 5. Definição de pronto
+
+Uma história está pronta quando:
+
+1. Todos os critérios de aceite do DRS passam no Expo Go (Android e iOS se possível).
+2. A tela segue o protótipo (cores e fontes vindas de `src/theme`).
+3. As regras de negócio estão no banco (constraint, RLS ou função), não só no app.
+4. `npm run typecheck`, `npm run lint` e `npm test` passam.
+5. Os componentes têm `accessibilityLabel` (RNF-011).
+
+## 6. Riscos
+
+| Risco                                                                            | Plano                                                                                                                    |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Busca de academias depende de API externa (Google Places tem custo)              | Começar com academias cadastradas no banco + sugestão do usuário (P8). Integrar OpenStreetMap/Overpass ou Places depois. |
+| Push não funciona no Expo Go                                                     | Notificações locais até a Sprint 6. Depois, development build.                                                           |
+| Regras só no app podem ser burladas                                              | Toda regra crítica também vai para o banco (RLS, triggers e funções).                                                    |
+| Pasta do projeto dentro do OneDrive deixa o `npm install` lento e quebra o Metro | O código fica em `Documentos\Github\gymbro-app`, fora do OneDrive.                                                       |
