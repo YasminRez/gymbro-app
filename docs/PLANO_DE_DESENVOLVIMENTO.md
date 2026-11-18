@@ -87,13 +87,25 @@ Telas: P1–P3 (perfil em 3 etapas), P4 Localização, P5/P6 Academias em lista 
 - [ ] Reordenar fotos arrastando (o DRS pede arrastar; hoje é por menu). Fica para o acabamento da Sprint 6.
 - [ ] Painel de moderação para aprovar academias sugeridas (fora do app; dá para fazer pelo Table Editor do Supabase mudando `status` para `aprovada`).
 
-### Sprint 3 — Descoberta e match · US-08, US-09, US-10
+### Sprint 3 — Descoberta e match · US-08, US-09, US-10 ✅ (código pronto)
 
-Telas: D1 Descobrir, D2 Perfil incompleto, D3 Filtros, D4 Perfil completo, D7 É um match!, D8 Limite de curtidas, D9 Sem novos perfis.
+Telas: D1 Descobrir, D3 Filtros, D4 Perfil completo, D7 É um match!, D8 Limite de curtidas, D9 Sem novos perfis. A D2 (Perfil incompleto) é coberta pelo bloqueio de rotas da RN-006, que leva direto ao item que falta.
 
-- Função SQL `buscar_parceiros()` (security definer): aplica filtros, bloqueios (RN-015), passados há menos de 30 dias (RN-013) e ordena pela compatibilidade (RN-024, mesma fórmula de `src/domain/rules.ts`).
-- Deck de cards com gesture-handler + reanimated.
-- Curtida → trigger no banco cria a `conexao` quando há reciprocidade (RN-011) e o limite de 100 por dia (RN-012).
+- [x] A função `buscar_parceiros` (migration 0005) monta a lista no banco e ordena pela compatibilidade da RN-024, com a mesma fórmula de `src/domain/rules.ts`. Ela esconde:
+  - quem está bloqueado nos dois sentidos (RN-015);
+  - quem já é conexão;
+  - quem você já curtiu;
+  - quem você passou há menos de 30 dias (RN-013);
+  - quem está com o perfil pausado.
+- [x] Aplica as preferências (idade, gênero, distância entre academias, "Somente minha academia") e os filtros rápidos de período, modalidade e objetivo.
+- [x] O card mostra foto, nome, idade, academia, distância aproximada (RN-008), horários, modalidades, objetivos, interesses em comum em verde e o percentual de compatibilidade.
+- [x] Deslizar para curtir ou passar (gesture-handler + reanimated, RNF-008), botões Passar, Desfazer e Curtir.
+- [x] A função `registrar_acao` grava a curtida e cria a conexão numa única transação, só com curtida mútua (RN-011). Também aplica o limite de 100 curtidas por dia no fuso do usuário (RN-012) e gera a notificação para a outra pessoa.
+- [x] "Desfazer" vale para a última ação, até 10 minutos depois, desde que ainda não tenha virado conexão.
+- [x] Perfil completo com todas as fotos, bio, dias ativos e sequência.
+- [x] Perfis de teste para experimentar no Supabase: `supabase/seed/perfis_teste.sql` (veja o README).
+- [x] Testes: 61 passando. A busca, o match, o filtro e a notificação também foram testados direto no banco.
+- [ ] Notificação push do match (US-10, cenário 2): a notificação já é gravada no banco; o envio do push entra na Sprint 6.
 
 ### Sprint 4 — Conexões, chat e segurança · US-11, US-12, US-13, US-14
 

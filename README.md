@@ -25,7 +25,7 @@ Sem o `.env` preenchido o app roda em **modo demonstração** (veja abaixo).
 
 ## Supabase
 
-O projeto **gymbro** já está criado na organização _YasminRez's Org_, na região de São Paulo (`sa-east-1`). Os SQL de `supabase/migrations/` (0001 a 0004) já foram aplicados.
+O projeto **gymbro** já está criado na organização _YasminRez's Org_, na região de São Paulo (`sa-east-1`). Os SQL de `supabase/migrations/` (0001 a 0005) já foram aplicados.
 
 - Autenticação: "Confirm email" está desligado para facilitar os testes. O link de recuperação vale 30 minutos, e os Redirect URLs `exp://**` e `gymbro://**` estão cadastrados.
 - Storage: o bucket `fotos-perfil` é público para leitura, e cada usuário só envia arquivos para a própria pasta.
@@ -38,6 +38,17 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=<chave publishable do painel: Project Settings →
 ```
 
 Depois de criar ou alterar o `.env`, pare o Expo (Ctrl+C) e rode `npx expo start` de novo.
+
+### Perfis de teste (descoberta e match)
+
+Para ter gente para curtir enquanto o app não tem usuários, crie sua conta pelo app, escolha sua academia e rode no **SQL Editor** do Supabase:
+
+```sql
+select criar_perfis_teste('seu-email@exemplo.com');  -- cria 6 perfis na sua academia
+select apagar_perfis_teste();                         -- remove todos depois
+```
+
+Ana e Diego já curtiram você: ao curtir de volta, aparece o "É um match!". As funções estão em `supabase/seed/perfis_teste.sql` e não podem ser chamadas pelo app.
 
 ### Novas migrações
 
