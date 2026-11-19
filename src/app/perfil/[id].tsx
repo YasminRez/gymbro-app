@@ -4,7 +4,6 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,18 +12,26 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Card, Chip, Text } from '@/components/ui';
+import { ActionSheet, Button, Card, Chip, Text } from '@/components/ui';
+import { toast } from '@/components/ui/toast';
 import { NIVEIS } from '@/constants/catalogos';
 import { Candidate, DISCOVERY_MESSAGES, DiscoveryError, formatSchedule } from '@/domain/discovery';
 import { discoveryApi } from '@/features/discovery/api';
 import { Avatar } from '@/features/discovery/profile-card';
+import { SafetyMode, SafetySheets } from '@/features/safety/safety-sheets';
 import { useDiscovery } from '@/store/discovery';
 import { useSession } from '@/store/session';
 import { colors, radius, spacing } from '@/theme';
 
-/** D4 · US-08, cenário 3 — Perfil completo: todas as fotos, bio, dias ativos e sequência */
+/**
+ * D4 · US-08, cenário 3 — Perfil completo: todas as fotos, bio, dias ativos e sequência.
+ * Aberto pela descoberta: curtir/passar. Aberto por uma conexão (?conexao=): mensagem e desfazer.
+ * Nos dois casos, o menu ⋮ tem Denunciar (US-14) e Bloquear (US-13).
+ */
 export default function PerfilCompleto() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, conexao } = useLocalSearchParams<{ id: string; conexao?: string }>();
+  const [menu, setMenu] = useState(false);
+  const [safety, setSafety] = useState<SafetyMode>(null);
   const cached = useDiscovery((s) => s.cache[id]);
   const setMatch = useDiscovery((s) => s.setMatch);
   const [acting, setActing] = useState(false);
@@ -54,7 +61,7 @@ export default function PerfilCompleto() {
         router.back();
       }
     } catch (e) {
-      Alert.alert(e instanceof DiscoveryError ? e.message : DISCOVERY_MESSAGES.generic);
+      toast(e instanceof DiscoveryError ? e.message : DISCOVERY_MESSAGES.generic, 'error');
     } finally {
       setActing(false);
     }
@@ -112,6 +119,13 @@ export default function PerfilCompleto() {
             </View>
           ) : null}
           <SafeAreaView style={styles.back} edges={['top']}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Mais opções"
+              onPress={() => setMenu(true)}
+              style={styles.backBtn}>
+              <Ionicons name="ellipsis-horizontal" size={22} color={colors.white} />
+            </Pressable>
             <Pressable accessibilityLabel="Voltar" onPress={() => router.back()} style={styles.backBtn}>
               <Ionicons name="chevron-down" size={24} color={colors.white} />
             </Pressable>
@@ -185,20 +199,66 @@ export default function PerfilCompleto() {
         </View>
       </ScrollView>
 
-      <SafeAreaView edges={['bottom']} style={styles.footer}>
-        <Pressable
-          accessibilityLabel="Passar"
-          onPress={() => agir('passar')}
-          style={[styles.round, { borderColor: colors.text.secondary + '88' }]}>
-          <Ionicons name="close" size={30} color={colors.text.secondary} />
-        </Pressable>
-        <Pressable
-          accessibilityLabel="Curtir"
-          onPress={() => agir('curtir')}
-          style={[styles.round, { borderColor: colors.brand.red + '88' }]}>
-          <Ionicons name="heart" size={30} color={colors.brand.red} />
-        </Pressable>
-      </SafeAreaView>
+      {conexao ? (
+        <SafeAreaView edges={['bottom']} style={[styles.footer, { paddingHorizontal: spacing.lg - 4 }]}>
+          <View style={{ flex: 1 }}>
+            <Button
+              title={`Mandar mensagem para ${person.nome.split(' ')[0]}`}
+              variant="success"
+              onPress={() =>
+                router.canGoBack()
+                  ? router.back()
+                  : router.replace({ pathname: '/chat/[id]', params: { id: conexao } })
+              }
+            />
+          </View>
+        </SafeAreaView>
+      ) : (
+        <SafeAreaView edges={['bottom']} style={styles.footer}>
+          <Pressable
+            accessibilityLabel="Passar"
+            onPress={() => agir('passar')}
+            style={[styles.round, { borderColor: colors.text.secondary + '88' }]}>
+            <Ionicons name="close" size={30} color={colors.text.secondary} />
+          </Pressable>
+          <Pressable
+            accessibilityLabel="Curtir"
+            onPress={() => agir('curtir')}
+            style={[styles.round, { borderColor: colors.brand.red + '88' }]}>
+            <Ionicons name="heart" size={30} color={colors.brand.red} />
+          </Pressable>
+        </SafeAreaView>
+      )}
+
+      <ActionSheet
+        visible={menu}
+        onClose={() => setMenu(false)}
+        title={person.nome}
+        actions={[
+          ...(conexao
+            ? [
+                {
+                  label: 'Desfazer conexão',
+                  icon: 'person-remove-outline' as const,
+                  onPress: () => setSafety('undo'),
+                },
+              ]
+            : []),
+          { label: 'Denunciar', icon: 'flag-outline', onPress: () => setSafety('report') },
+          { label: 'Bloquear', icon: 'ban-outline', destructive: true, onPress: () => setSafety('block') },
+        ]}
+      />
+      <SafetySheets
+        mode={safety}
+        onClose={() => setSafety(null)}
+        person={{ id: person.id, nome: person.nome, foto: person.fotos[0] ?? null }}
+        conexaoId={conexao}
+        onDone={() => {
+          // Sai do perfil (e do chat, se veio de lá) e volta para as abas
+          if (router.canDismiss()) router.dismissAll();
+          else router.replace(conexao ? '/conexoes' : '/descobrir');
+        }}
+      />
     </View>
   );
 }
@@ -218,7 +278,7 @@ const styles = StyleSheet.create({
   center: { flex: 1, backgroundColor: colors.bg.base, alignItems: 'center', justifyContent: 'center' },
   dots: { position: 'absolute', top: 54, left: spacing.md, right: spacing.md, flexDirection: 'row', gap: 4 },
   dotBar: { flex: 1, height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.35)' },
-  back: { position: 'absolute', top: 0, right: spacing.md },
+  back: { position: 'absolute', top: 0, right: spacing.md, flexDirection: 'row', gap: spacing.sm },
   backBtn: {
     marginTop: spacing.md + 8,
     width: 40,
