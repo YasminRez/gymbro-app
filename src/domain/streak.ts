@@ -69,3 +69,48 @@ export function computeStreak(checkInDates: string[], today: string): StreakStat
     restUsedThisWeek: restUsed,
   };
 }
+
+/* ---------- US-16, cenário 2: calendário ---------- */
+
+export type DayStatus = 'checkin' | 'descanso' | 'falta' | 'futuro' | 'hoje';
+
+const toKey = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+
+/**
+ * Situação de cada dia, com a mesma regra do computeStreak: o 1º dia sem check-in
+ * da semana vira descanso; os outros, falta. Dias antes do 1º check-in ficam de fora.
+ */
+export function dayStatuses(checkInDates: string[], today: string): Record<string, DayStatus> {
+  const days = new Set(checkInDates.map(parse));
+  const out: Record<string, DayStatus> = {};
+  if (days.size === 0) return out;
+  const end = parse(today);
+  let week = weekKey(Math.min(...days));
+  let restUsed = false;
+  for (let ms = Math.min(...days); ms <= end; ms += DAY_MS) {
+    if (weekKey(ms) !== week) {
+      week = weekKey(ms);
+      restUsed = false;
+    }
+    if (days.has(ms)) out[toKey(ms)] = 'checkin';
+    else if (ms === end) out[toKey(ms)] = 'hoje';
+    else if (!restUsed) {
+      restUsed = true;
+      out[toKey(ms)] = 'descanso';
+    } else out[toKey(ms)] = 'falta';
+  }
+  return out;
+}
+
+/** Semanas do mês (segunda a domingo), com null nos dias fora do mês. month: 1 a 12 */
+export function monthGrid(year: number, month: number): (string | null)[][] {
+  const first = Date.UTC(year, month - 1, 1);
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const lead = (new Date(first).getUTCDay() + 6) % 7;
+  const cells: (string | null)[] = Array.from({ length: lead }, () => null);
+  for (let d = 0; d < daysInMonth; d++) cells.push(toKey(first + d * DAY_MS));
+  while (cells.length % 7 !== 0) cells.push(null);
+  const weeks: (string | null)[][] = [];
+  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+  return weeks;
+}

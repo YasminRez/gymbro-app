@@ -1,22 +1,34 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Button, Card, Chip, Screen, Text } from '@/components/ui';
 import { NIVEIS } from '@/constants/catalogos';
-import { computeStreak } from '@/domain/streak';
+import { Stats } from '@/domain/feed';
+import { feedApi } from '@/features/feed/api';
 import { useSession } from '@/store/session';
 import { colors, radius, spacing } from '@/theme';
 
-/** F6 · US-04, US-16 — Meu perfil (dados reais do perfil; contador ainda de exemplo até a Sprint 5) */
-const DEMO_CHECKINS = ['2026-11-09', '2026-11-10', '2026-11-12'];
-
+/**
+ * F6 · US-04, US-16 — Meu perfil
+ * Contadores reais (RN-017/RN-018): dias ativos, sequência 🔥, maior sequência e
+ * dias ativos no mês, recalculados no banco sempre que a aba abre.
+ */
 export default function Perfil() {
   const { user, profile, gyms } = useSession();
   const main = gyms.find((g) => g.tipo === 'principal');
-  // TODO Sprint 5: datas vindas da tabela publicacao (conta_para_sequencia = true)
-  const stats = computeStreak(DEMO_CHECKINS, '2026-11-13');
+  const [stats, setStats] = useState<Stats | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      feedApi
+        .myStats()
+        .then(setStats)
+        .catch(() => undefined);
+    }, []),
+  );
   const nivel = NIVEIS.find((n) => n.value === profile?.nivel)?.label;
 
   return (
@@ -56,10 +68,23 @@ export default function Perfil() {
       </View>
 
       <View style={styles.row}>
-        <Stat value={stats.totalActiveDays} label="dias ativos" />
-        <Stat value={stats.currentStreak} label="sequência" highlight />
-        <Stat value={stats.longestStreak} label="maior sequência" />
+        <Stat value={stats?.totalDiasAtivos} label="dias ativos" />
+        <Stat value={stats?.sequenciaAtual} label="sequência 🔥" highlight />
       </View>
+      <View style={styles.row}>
+        <Stat value={stats?.maiorSequencia} label="maior sequência" />
+        <Stat value={stats?.diasNoMes} label="dias no mês" />
+      </View>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => router.push('/calendario')}
+        style={({ pressed }) => [styles.calendar, pressed && { opacity: 0.8 }]}>
+        <Ionicons name="calendar-outline" size={20} color={colors.brand.green} />
+        <Text variant="labelButton" style={{ flex: 1 }}>
+          Calendário de check-ins
+        </Text>
+        <Ionicons name="chevron-forward" size={18} color={colors.text.muted} />
+      </Pressable>
 
       {profile?.bio ? (
         <Text variant="bodyLarge" color={colors.text.secondary}>
@@ -86,11 +111,11 @@ export default function Perfil() {
   );
 }
 
-function Stat({ value, label, highlight }: { value: number; label: string; highlight?: boolean }) {
+function Stat({ value, label, highlight }: { value?: number; label: string; highlight?: boolean }) {
   return (
     <Card style={{ flex: 1, alignItems: 'center' }}>
       <Text variant="h1" color={highlight ? colors.brand.green : colors.text.primary}>
-        {value}
+        {value ?? '–'}
       </Text>
       <Text variant="caption" color={colors.text.secondary}>
         {label}
@@ -106,4 +131,14 @@ const styles = StyleSheet.create({
   avatarEmpty: { backgroundColor: colors.bg.input, alignItems: 'center', justifyContent: 'center' },
   row: { flexDirection: 'row', gap: spacing.sm },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  calendar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm + 4,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.bg.elevated,
+    borderWidth: 1,
+    borderColor: colors.border.default,
+  },
 });
