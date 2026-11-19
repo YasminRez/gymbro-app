@@ -85,7 +85,13 @@ export function InviteCard({
             <Ionicons name="barbell" size={20} color={colors.brand.red} />
           </View>
         )}
-        <View style={{ flex: 1, gap: 2 }}>
+        <View style={{ flex: 1, gap: 4 }}>
+          <View style={[styles.pill, { backgroundColor: tone.bg }]}>
+            <Ionicons name={tone.icon} size={12} color={tone.color} />
+            <Text variant="caption" color={tone.color}>
+              {STATUS_LABEL[invite.status]}
+            </Text>
+          </View>
           <Text variant="labelButton" numberOfLines={1}>
             {titulo}
           </Text>
@@ -95,12 +101,6 @@ export function InviteCard({
           <Text variant="caption" color={colors.text.muted} numberOfLines={1}>
             {invite.academia.nome}
             {invite.modalidade ? ` · ${invite.modalidade}` : ''}
-          </Text>
-        </View>
-        <View style={[styles.pill, { backgroundColor: tone.bg }]}>
-          <Ionicons name={tone.icon} size={12} color={tone.color} />
-          <Text variant="caption" color={tone.color}>
-            {STATUS_LABEL[invite.status]}
           </Text>
         </View>
       </View>
@@ -181,6 +181,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   pill: {
+    alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
