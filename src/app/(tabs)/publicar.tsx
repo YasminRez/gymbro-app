@@ -3,9 +3,9 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Linking, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, View } from 'react-native';
 
-import { ActionSheet, Button, Chip, Notice, Screen, Sheet, Text } from '@/components/ui';
+import { ActionSheet, Button, Chip, KeyboardTextInput, Notice, Screen, Sheet, Text } from '@/components/ui';
 import { toast } from '@/components/ui/toast';
 import { MODALIDADES } from '@/constants/catalogos';
 import {
@@ -177,7 +177,7 @@ export default function Publicar() {
 
       {/* Legenda */}
       <Field title="Legenda" optional>
-        <TextInput
+        <KeyboardTextInput
           accessibilityLabel="Legenda"
           multiline
           maxLength={CAPTION_MAX}
@@ -235,7 +235,7 @@ export default function Publicar() {
         </View>
         {outra ? (
           <View style={styles.minutes}>
-            <TextInput
+            <KeyboardTextInput
               accessibilityLabel="Duração em minutos"
               keyboardType="number-pad"
               maxLength={3}

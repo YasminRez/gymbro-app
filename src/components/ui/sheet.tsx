@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { ComponentProps, ReactNode } from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, SlideInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -42,7 +42,8 @@ export function Sheet({
 
   return (
     <Modal visible={visible} transparent animationType="none" statusBarTranslucent onRequestClose={onClose}>
-      <View style={styles.root}>
+      {/* O painel sobe junto com o teclado (campos de denúncia, convite etc.) */}
+      <KeyboardAvoidingView behavior="padding" style={styles.root}>
         <Animated.View entering={FadeIn.duration(200)} style={StyleSheet.absoluteFill}>
           <Pressable
             accessibilityRole="button"
@@ -77,7 +78,7 @@ export function Sheet({
           ) : null}
           {children}
         </Animated.View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

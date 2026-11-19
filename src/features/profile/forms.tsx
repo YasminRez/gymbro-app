@@ -2,10 +2,10 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import Animated, { LinearTransition, ZoomIn } from 'react-native-reanimated';
 
-import { ActionSheet, Button, Chip, Sheet, SheetAction, Text } from '@/components/ui';
+import { ActionSheet, Button, Chip, KeyboardTextInput, Sheet, SheetAction, Text } from '@/components/ui';
 import { DIAS, GENEROS, INTERESSES, MODALIDADES, NIVEIS, OBJETIVOS, PERIODOS } from '@/constants/catalogos';
 import { makeMain, MAX_PHOTOS_MESSAGE, movePhoto, ProfileData, sameSlot, toggle } from '@/domain/profile';
 import { PROFILE_LIMITS } from '@/domain/rules';
@@ -180,7 +180,7 @@ export function PhotosBioGender({ value, onChange }: Props) {
       </Section>
 
       <Section title="Bio" subtitle="Conte um pouco sobre você e seu treino.">
-        <TextInput
+        <KeyboardTextInput
           accessibilityLabel="Bio"
           multiline
           value={value.bio}

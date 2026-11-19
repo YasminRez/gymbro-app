@@ -107,7 +107,7 @@ export default function Comentarios() {
       <View style={{ paddingHorizontal: spacing.lg - 4 }}>
         <Header title="Comentários" />
       </View>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         {list === null ? (
           <ActivityIndicator color={colors.brand.red} style={{ marginTop: spacing.xl }} />
         ) : (

@@ -20,6 +20,8 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        // Teclado aberto esconde as abas e libera espaço para o campo
+        tabBarHideOnKeyboard: true,
         tabBarActiveTintColor: colors.brand.red,
         tabBarInactiveTintColor: colors.text.muted,
         tabBarStyle: { backgroundColor: colors.bg.surface, borderTopColor: colors.border.default },

@@ -4,9 +4,7 @@ import { ComponentProps, forwardRef, ReactNode, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
-  Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text as RNText,
   TextInput,
@@ -19,6 +17,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors, radius, spacing, typography, TypographyVariant } from '@/theme';
+
+import { KeyboardAwareScroll, useEnsureFocusedVisible } from './keyboard';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -45,17 +45,16 @@ type ScreenProps = {
 
 export function Screen({ children, scroll = false, style, footer }: ScreenProps) {
   const content = scroll ? (
-    <ScrollView
-      keyboardShouldPersistTaps="handled"
-      contentContainerStyle={[styles.screenContent, { flexGrow: 1 }, style]}>
+    <KeyboardAwareScroll contentStyle={[styles.screenContent, { flexGrow: 1 }, style]}>
       {children}
-    </ScrollView>
+    </KeyboardAwareScroll>
   ) : (
     <View style={[styles.screenContent, { flex: 1 }, style]}>{children}</View>
   );
   return (
     <SafeAreaView style={styles.screen}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      {/* Android edge-to-edge: a janela não encolhe com o teclado, então "padding" nas duas plataformas */}
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         {content}
         {footer ? <View style={styles.footer}>{footer}</View> : null}
       </KeyboardAvoidingView>
@@ -171,6 +170,7 @@ export const Input = forwardRef<TextInputInstance, InputProps>(function Input(
 ) {
   const [hidden, setHidden] = useState(true);
   const [focused, setFocused] = useState(false);
+  const ensureVisible = useEnsureFocusedVisible();
   const state = error ? 'error' : valid ? 'valid' : focused ? 'focus' : 'idle';
   const borderColor = {
     error: colors.brand.red,
@@ -197,6 +197,7 @@ export const Input = forwardRef<TextInputInstance, InputProps>(function Input(
           {...rest}
           onFocus={(e) => {
             setFocused(true);
+            ensureVisible();
             rest.onFocus?.(e);
           }}
           onBlur={(e) => {
@@ -226,6 +227,25 @@ export const Input = forwardRef<TextInputInstance, InputProps>(function Input(
     </View>
   );
 });
+
+/* ---------- Campo de texto livre que não fica atrás do teclado ---------- */
+
+/** TextInput comum que rola a tela até ele ao receber foco (use dentro de <Screen scroll>) */
+export const KeyboardTextInput = forwardRef<TextInputInstance, TextInputProps>(
+  function KeyboardTextInput(props, ref) {
+    const ensureVisible = useEnsureFocusedVisible();
+    return (
+      <TextInput
+        ref={ref}
+        {...props}
+        onFocus={(e) => {
+          ensureVisible();
+          props.onFocus?.(e);
+        }}
+      />
+    );
+  },
+);
 
 /* ---------- Checkbox ---------- */
 
@@ -407,3 +427,4 @@ const styles = StyleSheet.create({
 });
 
 export { ActionSheet, ConfirmSheet, Sheet, type SheetAction } from './sheet';
+export { useEnsureFocusedVisible } from './keyboard';
