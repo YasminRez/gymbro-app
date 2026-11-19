@@ -335,7 +335,15 @@ export function Card({ children, style }: { children: ReactNode; style?: ViewSty
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg.base },
   screenContent: { padding: spacing.lg - 4, gap: spacing.md },
-  footer: { paddingHorizontal: spacing.lg - 4, paddingBottom: spacing.md, gap: spacing.md },
+  footer: {
+    paddingHorizontal: spacing.lg - 4,
+    paddingTop: spacing.sm + 4,
+    paddingBottom: spacing.md,
+    gap: spacing.sm + 4,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border.default,
+    backgroundColor: colors.bg.base,
+  },
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm },
   button: {
     height: 52,
@@ -397,3 +405,5 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
 });
+
+export { ActionSheet, ConfirmSheet, Sheet, type SheetAction } from './sheet';

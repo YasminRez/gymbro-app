@@ -1,5 +1,6 @@
 import { ReactNode } from 'react';
-import { View } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { StyleSheet, View } from 'react-native';
 
 import { Button, Header, Screen, Text } from '@/components/ui';
 import { colors, radius, spacing } from '@/theme';
@@ -30,35 +31,46 @@ export function StepScreen({
       footer={
         <>
           {missing.length > 0 ? (
-            <Text variant="caption" color={colors.text.muted} style={{ textAlign: 'center' }}>
-              Falta: {missing.join(', ')}
-            </Text>
+            <View style={styles.missing}>
+              <Ionicons name="information-circle-outline" size={16} color={colors.text.muted} />
+              <Text variant="caption" color={colors.text.muted} style={{ flexShrink: 1 }}>
+                Falta: {missing.join(', ')}
+              </Text>
+            </View>
           ) : null}
           <Button title={cta} onPress={onNext} disabled={missing.length > 0} loading={loading} />
         </>
       }>
       <Header title="Seu perfil" />
-      <View style={{ flexDirection: 'row', gap: spacing.xs }} accessibilityLabel={`Etapa ${step} de 3`}>
-        {[1, 2, 3].map((s) => (
-          <View
-            key={s}
-            style={{
-              flex: 1,
-              height: 4,
-              borderRadius: radius.pill,
-              backgroundColor: s <= step ? colors.brand.red : colors.border.default,
-            }}
-          />
-        ))}
+      <View style={{ gap: spacing.sm }}>
+        <View style={styles.progressRow} accessibilityLabel={`Etapa ${step} de 3`}>
+          {[1, 2, 3].map((s) => (
+            <View
+              key={s}
+              style={[
+                styles.progress,
+                { backgroundColor: s <= step ? colors.brand.red : colors.border.default },
+              ]}
+            />
+          ))}
+        </View>
+        <Text variant="overline" color={colors.text.muted}>
+          Etapa {step} de 3
+        </Text>
       </View>
-      <Text variant="overline" color={colors.text.muted}>
-        Etapa {step} de 3
-      </Text>
-      <Text variant="h1">{title}</Text>
-      <Text variant="body" color={colors.text.secondary}>
-        {subtitle}
-      </Text>
+      <View style={{ gap: spacing.xs, marginBottom: spacing.sm }}>
+        <Text variant="h1">{title}</Text>
+        <Text variant="body" color={colors.text.secondary}>
+          {subtitle}
+        </Text>
+      </View>
       {children}
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  progressRow: { flexDirection: 'row', gap: spacing.xs },
+  progress: { flex: 1, height: 4, borderRadius: radius.pill },
+  missing: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs },
+});

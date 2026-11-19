@@ -2,9 +2,10 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
-import { ActionSheetIOS, Alert, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import Animated, { LinearTransition, ZoomIn } from 'react-native-reanimated';
 
-import { Chip, Text } from '@/components/ui';
+import { ActionSheet, Button, Chip, Sheet, SheetAction, Text } from '@/components/ui';
 import { DIAS, GENEROS, INTERESSES, MODALIDADES, NIVEIS, OBJETIVOS, PERIODOS } from '@/constants/catalogos';
 import { makeMain, MAX_PHOTOS_MESSAGE, movePhoto, ProfileData, sameSlot, toggle } from '@/domain/profile';
 import { PROFILE_LIMITS } from '@/domain/rules';
@@ -12,28 +13,38 @@ import { colors, radius, spacing, typography } from '@/theme';
 
 import { compressPhoto } from './api';
 
+const GRID_GAP = spacing.sm + 2;
+
 type Props = { value: ProfileData; onChange: (patch: Partial<ProfileData>) => void };
 
 /* ---------- Etapa 1: fotos, bio e gênero ---------- */
 
 export function PhotosBioGender({ value, onChange }: Props) {
   const [busy, setBusy] = useState(false);
+  const [sheet, setSheet] = useState<
+    | { kind: 'source' }
+    | { kind: 'photo'; index: number }
+    | { kind: 'notice'; title: string; message: string }
+    | null
+  >(null);
+  const [gridWidth, setGridWidth] = useState(0);
   const full = value.fotos.length >= PROFILE_LIMITS.photos.max;
+  const close = () => setSheet(null);
+
+  // 3 colunas exatas: (largura - 2 espaços) / 3. Evita a grade "quebrar" em 2 colunas.
+  const slotWidth = gridWidth > 0 ? Math.floor((gridWidth - GRID_GAP * 2) / 3) : 0;
 
   const add = async (source: 'galeria' | 'camera') => {
-    if (full) {
-      Alert.alert('Limite de fotos', MAX_PHOTOS_MESSAGE);
-      return;
-    }
     const perm =
       source === 'camera'
         ? await ImagePicker.requestCameraPermissionsAsync()
         : await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert(
-        'Permissão necessária',
-        'Permita o acesso nas configurações do aparelho para adicionar fotos.',
-      );
+      setSheet({
+        kind: 'notice',
+        title: 'Permissão necessária',
+        message: `Permita o acesso à ${source === 'camera' ? 'câmera' : 'galeria'} nas configurações do aparelho para adicionar fotos.`,
+      });
       return;
     }
     const options: ImagePicker.ImagePickerOptions = {
@@ -59,105 +70,116 @@ export function PhotosBioGender({ value, onChange }: Props) {
     }
   };
 
-  const chooseSource = () => {
-    if (full) {
-      Alert.alert('Limite de fotos', MAX_PHOTOS_MESSAGE);
-      return;
-    }
-    Alert.alert('Adicionar foto', undefined, [
-      { text: 'Galeria', onPress: () => add('galeria') },
-      { text: 'Câmera', onPress: () => add('camera') },
-      { text: 'Cancelar', style: 'cancel' },
-    ]);
-  };
+  const openSource = () =>
+    setSheet(
+      full ? { kind: 'notice', title: 'Limite de fotos', message: MAX_PHOTOS_MESSAGE } : { kind: 'source' },
+    );
 
-  const photoMenu = (i: number) => {
-    const actions = [
-      ...(i > 0
-        ? [{ label: 'Definir como principal', run: () => onChange({ fotos: makeMain(value.fotos, i) }) }]
-        : []),
-      ...(i > 0
-        ? [{ label: 'Mover para a esquerda', run: () => onChange({ fotos: movePhoto(value.fotos, i, -1) }) }]
-        : []),
-      ...(i < value.fotos.length - 1
-        ? [{ label: 'Mover para a direita', run: () => onChange({ fotos: movePhoto(value.fotos, i, 1) }) }]
-        : []),
-      {
-        label: 'Remover',
-        run: () => onChange({ fotos: value.fotos.filter((_, j) => j !== i) }),
-        destructive: true,
-      },
-    ];
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          options: [...actions.map((a) => a.label), 'Cancelar'],
-          cancelButtonIndex: actions.length,
-          destructiveButtonIndex: actions.length - 1,
-        },
-        (idx) => actions[idx]?.run(),
-      );
-    } else {
-      Alert.alert('Foto', undefined, [
-        ...actions.map((a) => ({
-          text: a.label,
-          onPress: a.run,
-          style: a.destructive ? ('destructive' as const) : undefined,
-        })),
-        { text: 'Cancelar', style: 'cancel' as const },
-      ]);
-    }
-  };
+  const photoActions = (i: number): SheetAction[] => [
+    ...(i > 0
+      ? [
+          {
+            label: 'Definir como principal',
+            icon: 'star-outline' as const,
+            onPress: () => onChange({ fotos: makeMain(value.fotos, i) }),
+          },
+          {
+            label: 'Mover para a esquerda',
+            icon: 'arrow-back' as const,
+            onPress: () => onChange({ fotos: movePhoto(value.fotos, i, -1) }),
+          },
+        ]
+      : []),
+    ...(i < value.fotos.length - 1
+      ? [
+          {
+            label: 'Mover para a direita',
+            icon: 'arrow-forward' as const,
+            onPress: () => onChange({ fotos: movePhoto(value.fotos, i, 1) }),
+          },
+        ]
+      : []),
+    {
+      label: 'Remover foto',
+      icon: 'trash-outline' as const,
+      destructive: true,
+      onPress: () => onChange({ fotos: value.fotos.filter((_, j) => j !== i) }),
+    },
+  ];
 
   const bioLen = value.bio.length;
   const bioOver = bioLen > PROFILE_LIMITS.bioMax;
+  const selectedPhoto = sheet?.kind === 'photo' ? value.fotos[sheet.index] : undefined;
 
   return (
-    <View style={{ gap: spacing.lg }}>
+    <View style={{ gap: spacing.xl - 4 }}>
       <Section
         title="Fotos"
-        subtitle="De 1 a 6. A primeira é a foto principal; toque numa foto para reordenar.">
-        <View style={styles.grid}>
-          {Array.from({ length: PROFILE_LIMITS.photos.max }, (_, i) => {
-            const f = value.fotos[i];
-            if (f) {
+        subtitle={`${value.fotos.length} de ${PROFILE_LIMITS.photos.max} · a primeira é a principal. Toque numa foto para reordenar.`}>
+        <View style={styles.grid} onLayout={(e) => setGridWidth(e.nativeEvent.layout.width)}>
+          {slotWidth > 0 &&
+            Array.from({ length: PROFILE_LIMITS.photos.max }, (_, i) => {
+              const f = value.fotos[i];
+              const size = { width: slotWidth, height: Math.round(slotWidth * 1.25) };
+              if (f) {
+                return (
+                  <Animated.View key={f.uri} entering={ZoomIn.duration(220)} layout={LinearTransition}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        i === 0 ? 'Foto principal, abrir opções' : `Foto ${i + 1}, abrir opções`
+                      }
+                      onPress={() => setSheet({ kind: 'photo', index: i })}
+                      style={({ pressed }) => [styles.slot, size, pressed && { opacity: 0.85 }]}>
+                      <Image source={{ uri: f.uri }} style={StyleSheet.absoluteFill} contentFit="cover" />
+                      {i === 0 ? (
+                        <View style={styles.mainTag}>
+                          <Ionicons name="star" size={10} color={colors.white} />
+                          <Text variant="overline" color={colors.white}>
+                            Principal
+                          </Text>
+                        </View>
+                      ) : null}
+                      <View style={styles.moreBtn}>
+                        <Ionicons name="ellipsis-horizontal" size={14} color={colors.white} />
+                      </View>
+                    </Pressable>
+                  </Animated.View>
+                );
+              }
+              const isNext = i === value.fotos.length;
               return (
                 <Pressable
-                  key={f.uri}
+                  key={`vazio-${i}`}
                   accessibilityRole="button"
-                  accessibilityLabel={i === 0 ? 'Foto principal' : `Foto ${i + 1}`}
-                  onPress={() => photoMenu(i)}
-                  style={styles.slot}>
-                  <Image source={{ uri: f.uri }} style={StyleSheet.absoluteFill} contentFit="cover" />
-                  {i === 0 ? (
-                    <View style={styles.mainTag}>
-                      <Text variant="caption" color={colors.white}>
-                        Principal
-                      </Text>
-                    </View>
-                  ) : null}
+                  accessibilityLabel="Adicionar foto"
+                  disabled={!isNext || busy}
+                  onPress={openSource}
+                  style={({ pressed }) => [
+                    styles.slot,
+                    styles.empty,
+                    size,
+                    isNext && styles.emptyNext,
+                    pressed && { opacity: 0.7 },
+                  ]}>
+                  {isNext ? (
+                    busy ? (
+                      <ActivityIndicator color={colors.brand.red} />
+                    ) : (
+                      <View style={styles.addCircle}>
+                        <Ionicons name="add" size={22} color={colors.white} />
+                      </View>
+                    )
+                  ) : (
+                    <Ionicons name="image-outline" size={20} color={colors.border.strong} />
+                  )}
                 </Pressable>
               );
-            }
-            const isNext = i === value.fotos.length;
-            return (
-              <Pressable
-                key={`vazio-${i}`}
-                accessibilityRole="button"
-                accessibilityLabel="Adicionar foto"
-                disabled={!isNext || busy}
-                onPress={chooseSource}
-                style={[styles.slot, styles.empty, isNext && { borderColor: colors.brand.red }]}>
-                {isNext ? (
-                  <Ionicons name={busy ? 'hourglass-outline' : 'add'} size={28} color={colors.brand.red} />
-                ) : null}
-              </Pressable>
-            );
-          })}
+            })}
         </View>
       </Section>
 
-      <Section title="Bio">
+      <Section title="Bio" subtitle="Conte um pouco sobre você e seu treino.">
         <TextInput
           accessibilityLabel="Bio"
           multiline
@@ -165,12 +187,13 @@ export function PhotosBioGender({ value, onChange }: Props) {
           onChangeText={(bio) => onChange({ bio })}
           placeholder="Conte como você treina, seus horários e o que procura num parceiro."
           placeholderTextColor={colors.text.muted}
+          selectionColor={colors.brand.red}
           style={[styles.bio, bioOver && { borderColor: colors.brand.red }]}
         />
         <Text
           variant="caption"
           color={bioOver ? colors.brand.red : colors.text.muted}
-          style={{ textAlign: 'right' }}>
+          style={{ textAlign: 'right', marginTop: -spacing.xs }}>
           {bioLen}/{PROFILE_LIMITS.bioMax}
         </Text>
       </Section>
@@ -182,6 +205,50 @@ export function PhotosBioGender({ value, onChange }: Props) {
           onToggle={(g) => onChange({ genero: g })}
         />
       </Section>
+
+      <ActionSheet
+        visible={sheet?.kind === 'source'}
+        onClose={close}
+        title="Adicionar foto"
+        message="Use fotos recentes em que dá para ver seu rosto."
+        actions={[
+          { label: 'Escolher da galeria', icon: 'images-outline', onPress: () => add('galeria') },
+          { label: 'Tirar foto agora', icon: 'camera-outline', onPress: () => add('camera') },
+        ]}
+      />
+
+      <ActionSheet
+        visible={sheet?.kind === 'photo'}
+        onClose={close}
+        header={
+          selectedPhoto ? (
+            <View style={styles.preview}>
+              <Image source={{ uri: selectedPhoto.uri }} style={styles.previewImg} contentFit="cover" />
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text variant="h3">
+                  {sheet?.kind === 'photo' && sheet.index === 0
+                    ? 'Foto principal'
+                    : `Foto ${(sheet?.kind === 'photo' ? sheet.index : 0) + 1}`}
+                </Text>
+                <Text variant="caption" color={colors.text.muted}>
+                  É a primeira foto que as pessoas veem na descoberta.
+                </Text>
+              </View>
+            </View>
+          ) : null
+        }
+        actions={sheet?.kind === 'photo' ? photoActions(sheet.index) : []}
+      />
+
+      <Sheet
+        visible={sheet?.kind === 'notice'}
+        onClose={close}
+        icon="alert-circle-outline"
+        tone="danger"
+        title={sheet?.kind === 'notice' ? sheet.title : undefined}
+        message={sheet?.kind === 'notice' ? sheet.message : undefined}>
+        <Button title="Entendi" onPress={close} />
+      </Sheet>
     </View>
   );
 }
@@ -297,13 +364,15 @@ export function Section({
   children: React.ReactNode;
 }) {
   return (
-    <View style={{ gap: spacing.sm }}>
-      <Text variant="h3">{title}</Text>
-      {subtitle ? (
-        <Text variant="caption" color={colors.text.muted}>
-          {subtitle}
-        </Text>
-      ) : null}
+    <View style={{ gap: spacing.sm + 4 }}>
+      <View style={{ gap: 2 }}>
+        <Text variant="h3">{title}</Text>
+        {subtitle ? (
+          <Text variant="caption" color={colors.text.muted}>
+            {subtitle}
+          </Text>
+        ) : null}
+      </View>
       {children}
     </View>
   );
@@ -328,26 +397,54 @@ function Chips({
 }
 
 const styles = StyleSheet.create({
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: GRID_GAP },
   slot: {
-    width: '31.5%',
-    aspectRatio: 4 / 5,
     borderRadius: radius.md,
     overflow: 'hidden',
     backgroundColor: colors.bg.input,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  empty: { borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.border.strong },
+  empty: {
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: colors.border.default,
+    backgroundColor: colors.bg.elevated,
+  },
+  emptyNext: { borderColor: colors.brand.red, backgroundColor: '#1E1312' },
+  addCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.brand.red,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   mainTag: {
     position: 'absolute',
     left: 6,
     bottom: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     backgroundColor: colors.brand.red,
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: radius.pill,
   },
+  moreBtn: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  preview: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  previewImg: { width: 64, height: 80, borderRadius: radius.sm },
   bio: {
     minHeight: 110,
     borderRadius: radius.md,

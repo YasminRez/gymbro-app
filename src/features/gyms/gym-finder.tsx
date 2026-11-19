@@ -1,9 +1,9 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import * as Location from 'expo-location';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  AppState,
   Linking,
   Pressable,
   StyleSheet,
@@ -18,6 +18,7 @@ import { formatDistance, Gym, GYM_MESSAGES } from '@/domain/gyms';
 import { SEARCH_RADIUS_KM } from '@/domain/rules';
 import { profileApi } from '@/features/profile/api';
 import { searchGymsByText, searchNearbyGyms } from '@/lib/gym-search';
+import { getCurrentCoords, turnOnLocationServices } from '@/lib/location';
 import { colors, radius, spacing, typography } from '@/theme';
 
 /**
@@ -39,7 +40,9 @@ export function GymFinder({
   startWithSearch?: boolean;
 }) {
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const [locationDenied, setLocationDenied] = useState(false);
+  const [locState, setLocState] = useState<'locating' | 'ok' | 'denied' | 'services-off' | 'unavailable'>(
+    'locating',
+  );
   const [raio, setRaio] = useState<number>(SEARCH_RADIUS_KM.default);
   const [texto, setTexto] = useState('');
   const [modo, setModo] = useState<'lista' | 'mapa'>('lista');
@@ -50,9 +53,11 @@ export function GymFinder({
   const searchRef = useRef<TextInputInstance>(null);
 
   const withCounts = useCallback(async (list: Gym[]) => {
-    const counts = await profileApi
-      .countUsers(list.map((g) => g.placeId))
-      .catch(() => ({}) as Record<string, number>);
+    // Contagem do GymBrô é um extra: se o banco demorar, mostra as academias sem ela
+    const counts = await Promise.race([
+      profileApi.countUsers(list.map((g) => g.placeId)).catch(() => ({}) as Record<string, number>),
+      new Promise<Record<string, number>>((r) => setTimeout(() => r({}), 3_000)),
+    ]);
     return list.map((g) => ({ ...g, usuarios: counts[g.placeId] ?? 0 }));
   }, []);
 
@@ -78,21 +83,49 @@ export function GymFinder({
   );
 
   // Localização só no momento da busca, nunca guardada (RN-008)
-  useEffect(() => {
-    (async () => {
-      const perm = await Location.getForegroundPermissionsAsync();
-      if (!perm.granted) {
-        setLocationDenied(true);
+  const localizar = useCallback(
+    async (ask: boolean) => {
+      const r = await getCurrentCoords({ ask }).catch(() => ({ status: 'unavailable' as const }));
+      if (r.status !== 'ok') {
+        setLocState(r.status);
         searchRef.current?.focus();
         return;
       }
-      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      const c = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-      setCoords(c);
+      setLocState('ok');
+      setCoords(r.coords);
       if (startWithSearch) searchRef.current?.focus();
-      else buscar({ texto: '', coords: c, raio: SEARCH_RADIUS_KM.default });
-    })().catch(() => setLocationDenied(true));
-  }, [buscar, startWithSearch]);
+      else buscar({ texto: '', coords: r.coords, raio: SEARCH_RADIUS_KM.default });
+    },
+    [buscar, startWithSearch],
+  );
+
+  const tentarDeNovo = useCallback(
+    (ask: boolean) => {
+      setLocState('locating');
+      localizar(ask);
+    },
+    [localizar],
+  );
+
+  // Primeira busca ao abrir a tela (fora do corpo do efeito, como callback)
+  useEffect(() => {
+    const t = setTimeout(() => localizar(!startWithSearch), 0);
+    return () => clearTimeout(t);
+  }, [localizar, startWithSearch]);
+
+  // Voltou das configurações (ligou o GPS ou deu a permissão)? Tenta de novo sozinho.
+  const locStateRef = useRef(locState);
+  useEffect(() => {
+    locStateRef.current = locState;
+  }, [locState]);
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (st) => {
+      const s = locStateRef.current;
+      if (st === 'active' && (s === 'denied' || s === 'services-off' || s === 'unavailable'))
+        tentarDeNovo(false);
+    });
+    return () => sub.remove();
+  }, [tentarDeNovo]);
 
   const mudarRaio = (r: number) => {
     setRaio(r);
@@ -133,12 +166,48 @@ export function GymFinder({
         ) : null}
       </View>
 
-      {locationDenied ? (
-        <Card>
+      {locState === 'locating' ? (
+        <View style={styles.locating}>
+          <ActivityIndicator color={colors.brand.red} />
           <Text variant="body" color={colors.text.secondary}>
-            Sem localização: pesquise pelo nome, bairro ou cidade.
+            Procurando sua localização…
           </Text>
-          <Button title="Ativar localização" variant="secondary" onPress={() => Linking.openSettings()} />
+        </View>
+      ) : locState !== 'ok' ? (
+        <Card>
+          <View style={{ flexDirection: 'row', gap: spacing.sm + 4, alignItems: 'flex-start' }}>
+            <Ionicons name="location-outline" size={22} color={colors.brand.red} />
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text variant="labelButton">
+                {locState === 'services-off'
+                  ? 'A localização do celular está desligada'
+                  : locState === 'denied'
+                    ? 'Sem permissão de localização'
+                    : 'Não conseguimos achar sua posição'}
+              </Text>
+              <Text variant="body" color={colors.text.secondary}>
+                {locState === 'unavailable'
+                  ? 'Vá para um lugar aberto ou tente de novo. Você também pode pesquisar pelo nome, bairro ou cidade.'
+                  : 'Enquanto isso, pesquise pelo nome, bairro ou cidade.'}
+              </Text>
+            </View>
+          </View>
+          {locState === 'services-off' ? (
+            <Button title="Ligar localização" variant="secondary" onPress={turnOnLocationServices} />
+          ) : locState === 'denied' ? (
+            <Button title="Permitir localização" variant="secondary" onPress={() => tentarDeNovo(true)} />
+          ) : (
+            <Button title="Tentar de novo" variant="secondary" onPress={() => tentarDeNovo(false)} />
+          )}
+          {locState === 'denied' ? (
+            <Pressable
+              onPress={() => Linking.openSettings()}
+              style={{ alignSelf: 'center', padding: spacing.xs }}>
+              <Text variant="labelSmall" color={colors.text.muted}>
+                Abrir configurações do aparelho
+              </Text>
+            </Pressable>
+          ) : null}
         </Card>
       ) : (
         <View style={styles.toolbar}>
@@ -168,7 +237,14 @@ export function GymFinder({
         </View>
       )}
 
-      {loading ? <ActivityIndicator color={colors.brand.red} style={{ marginTop: spacing.lg }} /> : null}
+      {loading ? (
+        <View style={styles.locating}>
+          <ActivityIndicator color={colors.brand.red} />
+          <Text variant="body" color={colors.text.secondary}>
+            Buscando academias…
+          </Text>
+        </View>
+      ) : null}
       {error ? (
         <Notice tone="error" icon="cloud-offline-outline">
           Não foi possível buscar academias agora. Verifique sua internet e tente de novo.
@@ -296,6 +372,13 @@ const styles = StyleSheet.create({
   toolbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
   chips: { flexDirection: 'row', gap: spacing.xs, flexShrink: 1, flexWrap: 'wrap' },
   toggle: { flexDirection: 'row', alignItems: 'center', gap: 4, padding: spacing.xs },
+  locating: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+  },
   mapBox: {
     height: 340,
     borderRadius: radius.lg,
