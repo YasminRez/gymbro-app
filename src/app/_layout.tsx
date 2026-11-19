@@ -94,6 +94,12 @@ export default function RootLayout() {
               <Stack.Screen name="editar-perfil" />
               <Stack.Screen name="configuracoes" />
               <Stack.Screen name="bloqueados" />
+              <Stack.Screen name="comentarios/[id]" />
+              <Stack.Screen name="calendario" />
+              <Stack.Screen
+                name="dia-concluido"
+                options={{ presentation: 'transparentModal', animation: 'fade', gestureEnabled: false }}
+              />
             </Stack.Protected>
           </Stack>
           <Toaster />
