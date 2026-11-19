@@ -21,6 +21,7 @@ import { feedApi, Liker } from '@/features/feed/api';
 import { PostCard } from '@/features/feed/post-card';
 import { openProfile } from '@/features/profile/open-profile';
 import { SafetyMode, SafetySheets } from '@/features/safety/safety-sheets';
+import { useNotifications } from '@/store/notifications';
 import { usePublish } from '@/store/publish';
 import { useSession } from '@/store/session';
 import { colors, radius, spacing } from '@/theme';
@@ -47,6 +48,7 @@ export default function Feed() {
   const feedVersion = usePublish((s) => s.feedVersion);
   const commentCounts = usePublish((s) => s.commentCounts);
   const bumpFeed = usePublish((s) => s.bumpFeed);
+  const unread = useNotifications((s) => s.unread);
   const reqId = useRef(0);
 
   const load = useCallback(async (t: FeedTab) => {
@@ -164,10 +166,17 @@ export default function Feed() {
         <Text variant="h1">Feed</Text>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Notificações"
+          accessibilityLabel={unread > 0 ? `Notificações, ${unread} não lidas` : 'Notificações'}
           hitSlop={10}
           onPress={() => router.push('/notificacoes')}>
           <Ionicons name="notifications-outline" size={24} color={colors.text.primary} />
+          {unread > 0 ? (
+            <View style={styles.bellBadge}>
+              <Text variant="overline" color={colors.white} style={{ fontSize: 10, lineHeight: 12 }}>
+                {unread > 9 ? '9+' : unread}
+              </Text>
+            </View>
+          ) : null}
         </Pressable>
       </View>
       <View style={styles.tabs} accessibilityRole="tablist">
@@ -331,6 +340,20 @@ export default function Feed() {
 }
 
 const styles = StyleSheet.create({
+  bellBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -6,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    backgroundColor: colors.brand.red,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: colors.bg.base,
+  },
   screen: { flex: 1, backgroundColor: colors.bg.base },
   top: {
     flexDirection: 'row',

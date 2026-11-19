@@ -123,16 +123,25 @@ Telas: F1 Feed, F2 Comentários, F3 Excluir check-in, F4 Publicar, F5 Dia conclu
 - Recalcular `estatistica_atividade` com a mesma regra de `src/domain/streak.ts` (RN-018), num trigger ou num agendamento diário.
 - Feed com paginação por cursor e visibilidade (RN-021). Curtidas, comentários (RN-020) e exclusão lógica com recálculo (RN-019).
 
-### Sprint 6 — Engajamento, conta e acabamento · US-21, US-22, US-23, US-24 + RNFs
+### Sprint 6 — Engajamento, conta e acabamento · US-21, US-22, US-23, US-24 + RNFs ✅ (código pronto)
 
-Telas: F7 Notificações, F8 Ranking, C1 Configurações, C2 Notificações, C4 Excluir conta.
+Telas: F7 Notificações, F8 Ranking, C1 Configurações (com Privacidade), C2 Notificações, C4 Excluir conta e "Conta em exclusão".
 
-- Notificações: expo-notifications + Expo Push Service (precisa de development build).
-- Ranking semanal da academia (view SQL de segunda a domingo).
-- Privacidade (RN-008, RN-021) e exclusão de conta com 30 dias de carência (RN-022, RNF-002).
-- Modo offline (RNF-009): cache persistido do TanStack Query + fila de envios pendentes.
-- Acessibilidade (RNF-011), medição de desempenho (RNF-005) e testes nos aparelhos (RNF-001).
-- Build com EAS para Android e iOS.
+- [x] **US-21 Notificações (F7):** lista agrupada em Hoje / Esta semana / Anteriores, com paginação, "Marcar todas como lidas" e toque que abre a tela certa (chat, comentários, publicar ou perfil). Bloqueados somem da lista (RN-015). Badge com o número de não lidas no sino do Feed.
+- [x] Mensagem nova também gera notificação (uma por conversa enquanto não for lida).
+- [x] **C2:** liga/desliga matches, mensagens, convites, curtidas, comentários e lembrete de sequência. No banco, um trigger descarta o tipo desligado antes de gravar. Se o celular bloqueou as notificações, a tela explica e leva aos ajustes.
+- [x] Push: com o app aberto, a notificação chega pelo Realtime e vira notificação local (funciona no Expo Go). Numa development build, o app registra o token do Expo Push e o banco envia o push com pg_net, mesmo com o app fechado.
+- [x] Lembrete de sequência às 20h no fuso de cada pessoa, se ainda não houve check-in no dia (pg_cron de hora em hora).
+- [x] **US-22 Ranking (F8):** check-ins válidos de segunda a domingo na academia principal (ou nas secundárias, pelas abas), com empate dividindo a posição, medalhas, sua posição destacada e "termina em N dias". Acesso pelo Perfil e por Minha academia.
+- [x] **US-23 Privacidade:** "Mostrar distância aproximada" (RN-008, aplicado em `buscar_parceiros`), visibilidade padrão das publicações (RN-021) e "Aparecer na descoberta".
+- [x] **US-24 Excluir conta (C4):** pede a palavra EXCLUIR e a senha de novo (RNF-002). A conta é desativada na hora (some da descoberta, do feed e das conexões) e apagada de vez após 30 dias por um cron (RN-022). Entrar de novo dentro do prazo mostra "Conta em exclusão" com "Reativar".
+- [x] **RNF-009 Offline:** aviso "Sem internet" em qualquer tela e `onlineManager` do TanStack Query ligado ao NetInfo. O rascunho da publicação e as mensagens pendentes do chat já ficavam salvos.
+- [x] **RNF-011:** telas novas com `accessibilityRole`, `accessibilityLabel` e estado nos interruptores e rádios.
+- [x] `eas.json` com os perfis development, preview (APK) e production.
+- [x] Migrations 0013, 0014 e 0015 aplicadas no Supabase e testadas no banco (filtro de preferências, ranking, privacidade, exclusão e reativação).
+- [x] Testes: 109 passando (novos testes de notificações, ranking e exclusão).
+- [ ] **Grupo:** rodar `npx eas-cli init` (cria o projectId) e `npx eas-cli build --profile development` para testar o push com o app fechado.
+- [ ] Reordenar fotos arrastando (hoje é por menu) e painel de moderação continuam como melhorias futuras.
 
 ## 4. Forma de trabalho no GitHub
 
