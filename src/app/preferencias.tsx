@@ -1,9 +1,10 @@
 import Slider from '@react-native-community/slider';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Switch, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Switch, View } from 'react-native';
 
 import { Button, Card, Chip, Header, Screen, Text } from '@/components/ui';
+import { toast } from '@/components/ui/toast';
 import { GENEROS } from '@/constants/catalogos';
 import { toggle } from '@/domain/profile';
 import { SEARCH_RADIUS_KM } from '@/domain/rules';
@@ -40,10 +41,10 @@ export default function PreferenciasDescoberta() {
     setSaving(true);
     try {
       await profileApi.savePreferences(user.id, prefs);
-      Alert.alert(PROFILE_MESSAGES.prefsSaved);
+      toast(PROFILE_MESSAGES.prefsSaved);
       router.back();
     } catch {
-      Alert.alert(PROFILE_MESSAGES.generic);
+      toast(PROFILE_MESSAGES.generic, 'error');
     } finally {
       setSaving(false);
     }

@@ -1,8 +1,8 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Alert } from 'react-native';
 
 import { Header, Notice, Screen, Text } from '@/components/ui';
+import { toast } from '@/components/ui/toast';
 import { Gym, GYM_MESSAGES, GymRuleError } from '@/domain/gyms';
 import { GymFinder } from '@/features/gyms/gym-finder';
 import { PROFILE_MESSAGES, profileApi } from '@/features/profile/api';
@@ -20,8 +20,7 @@ export default function BuscarAcademia() {
     try {
       await profileApi.linkGym(gym, tipo);
       await refresh();
-      Alert.alert(
-        'Tudo certo',
+      toast(
         tipo === 'principal'
           ? GYM_MESSAGES.linked(gym.nome)
           : `${gym.nome} foi adicionada como academia secundária.`,

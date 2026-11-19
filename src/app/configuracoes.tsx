@@ -1,8 +1,9 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { Alert, Platform, Pressable, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, View } from 'react-native';
 
-import { Button, Header, Screen, Text } from '@/components/ui';
+import { Button, ConfirmSheet, Header, Screen, Text } from '@/components/ui';
 import { useSession } from '@/store/session';
 import { colors, radius, spacing } from '@/theme';
 
@@ -10,17 +11,9 @@ import { colors, radius, spacing } from '@/theme';
 export default function Configuracoes() {
   const { signOut, user } = useSession();
 
-  const sair = () => {
-    const confirmar = () => signOut();
-    if (Platform.OS === 'web') {
-      if (globalThis.confirm?.('Deseja sair da sua conta?')) confirmar();
-      return;
-    }
-    Alert.alert('Sair da conta', 'Deseja sair da sua conta?', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Sair', style: 'destructive', onPress: confirmar },
-    ]);
-  };
+  const [confirmSair, setConfirmSair] = useState(false);
+  const [saindo, setSaindo] = useState(false);
+  const sair = () => setConfirmSair(true);
 
   return (
     <Screen scroll>
@@ -60,6 +53,22 @@ export default function Configuracoes() {
         na Sprint 6.
       </Text>
       <Button title="Sair da conta" variant="secondary" onPress={sair} />
+
+      {/* US-02, cenário 6 */}
+      <ConfirmSheet
+        visible={confirmSair}
+        onClose={() => setConfirmSair(false)}
+        onConfirm={async () => {
+          setSaindo(true);
+          await signOut();
+        }}
+        loading={saindo}
+        destructive
+        icon="log-out-outline"
+        title="Sair da conta?"
+        message="Você vai precisar entrar de novo com e-mail e senha."
+        confirmLabel="Sair"
+      />
     </Screen>
   );
 }
