@@ -96,6 +96,7 @@ export default function RootLayout() {
               <Stack.Screen name="bloqueados" />
               <Stack.Screen name="comentarios/[id]" />
               <Stack.Screen name="calendario" />
+              <Stack.Screen name="treinos" />
               <Stack.Screen
                 name="dia-concluido"
                 options={{ presentation: 'transparentModal', animation: 'fade', gestureEnabled: false }}

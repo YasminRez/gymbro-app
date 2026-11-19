@@ -18,6 +18,7 @@ import { NIVEIS } from '@/constants/catalogos';
 import { Candidate, DISCOVERY_MESSAGES, DiscoveryError, formatSchedule } from '@/domain/discovery';
 import { discoveryApi } from '@/features/discovery/api';
 import { Avatar } from '@/features/discovery/profile-card';
+import { InviteSheet } from '@/features/invites/invite-sheet';
 import { SafetyMode, SafetySheets } from '@/features/safety/safety-sheets';
 import { useDiscovery } from '@/store/discovery';
 import { useSession } from '@/store/session';
@@ -32,6 +33,7 @@ export default function PerfilCompleto() {
   const { id, conexao } = useLocalSearchParams<{ id: string; conexao?: string }>();
   const [menu, setMenu] = useState(false);
   const [safety, setSafety] = useState<SafetyMode>(null);
+  const [inviting, setInviting] = useState(false);
   const cached = useDiscovery((s) => s.cache[id]);
   const setMatch = useDiscovery((s) => s.setMatch);
   const [acting, setActing] = useState(false);
@@ -200,10 +202,15 @@ export default function PerfilCompleto() {
       </ScrollView>
 
       {conexao ? (
-        <SafeAreaView edges={['bottom']} style={[styles.footer, { paddingHorizontal: spacing.lg - 4 }]}>
+        <SafeAreaView
+          edges={['bottom']}
+          style={[styles.footer, { paddingHorizontal: spacing.lg - 4, gap: spacing.sm }]}>
+          <View style={{ flex: 1 }}>
+            <Button title="Convidar para treinar" variant="secondary" onPress={() => setInviting(true)} />
+          </View>
           <View style={{ flex: 1 }}>
             <Button
-              title={`Mandar mensagem para ${person.nome.split(' ')[0]}`}
+              title="Mensagem"
               variant="success"
               onPress={() =>
                 router.canGoBack()
@@ -248,6 +255,14 @@ export default function PerfilCompleto() {
           { label: 'Bloquear', icon: 'ban-outline', destructive: true, onPress: () => setSafety('block') },
         ]}
       />
+      {conexao ? (
+        <InviteSheet
+          visible={inviting}
+          onClose={() => setInviting(false)}
+          conexaoId={conexao}
+          pessoa={{ id: person.id, nome: person.nome }}
+        />
+      ) : null}
       <SafetySheets
         mode={safety}
         onClose={() => setSafety(null)}

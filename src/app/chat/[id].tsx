@@ -31,6 +31,10 @@ import {
 } from '@/domain/chat';
 import { connectionsApi, NetworkError } from '@/features/connections/api';
 import { PersonAvatar } from '@/features/connections/person-avatar';
+import { Invite } from '@/domain/invite';
+import { invitesApi } from '@/features/invites/api';
+import { InviteCard } from '@/features/invites/invite-card';
+import { InviteSheet } from '@/features/invites/invite-sheet';
 import { SafetyMode, SafetySheets } from '@/features/safety/safety-sheets';
 import { colors, radius, spacing, typography } from '@/theme';
 
@@ -51,6 +55,8 @@ export default function Chat() {
   const [safety, setSafety] = useState<SafetyMode>(null);
   const [reportMsg, setReportMsg] = useState<string | undefined>();
   const [online, setOnline] = useState(true);
+  const [invites, setInvites] = useState<Invite[]>([]);
+  const [inviting, setInviting] = useState(false);
   const loadedIds = useRef(new Set<string>());
   const flushing = useRef(false);
   const msgsRef = useRef<ChatMessage[]>([]);
@@ -91,6 +97,26 @@ export default function Chat() {
       if (!m.minha && !m.lidaEm) connectionsApi.markRead(id).catch(() => undefined);
     });
   }, [id, conversa]);
+
+  /* ---------- convites de treino (US-25) ---------- */
+  const loadInvites = useCallback(() => {
+    invitesApi
+      .list(id)
+      // só os que ainda vão acontecer
+      .then((l) => setInvites(l.filter((i) => Date.parse(i.inicio) > Date.now())))
+      .catch(() => undefined);
+  }, [id]);
+  useEffect(() => {
+    if (!conversa) return;
+    const t = setTimeout(loadInvites, 0);
+    const unsub = invitesApi.subscribe(id, loadInvites);
+    return () => {
+      clearTimeout(t);
+      unsub();
+    };
+  }, [id, conversa, loadInvites]);
+  // No topo da conversa: só os que ainda importam (pendentes e confirmados no futuro)
+  const ativos = invites.filter((i) => i.status === 'pendente' || i.status === 'aceito');
 
   /* ---------- envio ---------- */
   const deliver = useCallback(
@@ -203,6 +229,16 @@ export default function Chat() {
             </Text>
           </View>
         </Pressable>
+        {ativa ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Convidar para treinar"
+            hitSlop={8}
+            onPress={() => setInviting(true)}
+            style={styles.iconBtn}>
+            <Ionicons name="calendar-outline" size={21} color={colors.brand.green} />
+          </Pressable>
+        ) : null}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Mais opções"
@@ -212,6 +248,25 @@ export default function Chat() {
           <Ionicons name="ellipsis-vertical" size={20} color={colors.text.primary} />
         </Pressable>
       </View>
+
+      {ativa && ativos.length > 0 ? (
+        <View style={styles.invites}>
+          {ativos.slice(0, 2).map((i) => (
+            <InviteCard
+              key={i.id}
+              invite={i}
+              onChanged={(n) => setInvites((cur) => cur.map((x) => (x.id === n.id ? n : x)))}
+            />
+          ))}
+          {ativos.length > 2 ? (
+            <Pressable onPress={() => router.push('/treinos')} style={{ alignSelf: 'center' }}>
+              <Text variant="labelSmall" color={colors.brand.green}>
+                Ver os {ativos.length} treinos combinados
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -326,6 +381,11 @@ export default function Chat() {
                     router.push({ pathname: '/perfil/[id]', params: { id: pessoa.id, conexao: id } }),
                 },
                 {
+                  label: 'Convidar para treinar',
+                  icon: 'calendar-outline' as const,
+                  onPress: () => setInviting(true),
+                },
+                {
                   label: 'Desfazer conexão',
                   icon: 'person-remove-outline' as const,
                   onPress: () => setSafety('undo'),
@@ -342,6 +402,14 @@ export default function Chat() {
           },
           { label: 'Bloquear', icon: 'ban-outline', destructive: true, onPress: () => setSafety('block') },
         ]}
+      />
+
+      <InviteSheet
+        visible={inviting}
+        onClose={() => setInviting(false)}
+        conexaoId={id}
+        pessoa={pessoa}
+        onSent={(i) => setInvites((cur) => [...cur, i])}
       />
 
       <SafetySheets
@@ -447,6 +515,12 @@ const styles = StyleSheet.create({
   },
   headerPerson: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm + 2 },
   iconBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  invites: {
+    gap: spacing.sm,
+    padding: spacing.sm + 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border.default,
+  },
   list: { paddingHorizontal: spacing.md, paddingVertical: spacing.md, gap: spacing.xs + 2, flexGrow: 1 },
   dayWrap: { alignItems: 'center', marginVertical: spacing.sm },
   day: {

@@ -47,7 +47,10 @@ export const PostCard = memo(function PostCard({
     onActivate: () => {
       'worklet';
       heart.set(
-        withSequence(withSpring(1, { damping: 9, stiffness: 220 }), withDelay(450, withTiming(0, { duration: 200 }))),
+        withSequence(
+          withSpring(1, { damping: 9, stiffness: 220 }),
+          withDelay(450, withTiming(0, { duration: 200 })),
+        ),
       );
       scheduleOnRN(likeFromTap);
     },
