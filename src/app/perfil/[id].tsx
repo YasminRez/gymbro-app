@@ -18,6 +18,7 @@ import { NIVEIS } from '@/constants/catalogos';
 import { Candidate, DISCOVERY_MESSAGES, DiscoveryError, formatSchedule } from '@/domain/discovery';
 import { discoveryApi } from '@/features/discovery/api';
 import { Avatar } from '@/features/discovery/profile-card';
+import { InviteSheet } from '@/features/invites/invite-sheet';
 import { SafetyMode, SafetySheets } from '@/features/safety/safety-sheets';
 import { useDiscovery } from '@/store/discovery';
 import { useSession } from '@/store/session';
@@ -32,6 +33,7 @@ export default function PerfilCompleto() {
   const { id, conexao } = useLocalSearchParams<{ id: string; conexao?: string }>();
   const [menu, setMenu] = useState(false);
   const [safety, setSafety] = useState<SafetyMode>(null);
+  const [inviting, setInviting] = useState(false);
   const cached = useDiscovery((s) => s.cache[id]);
   const setMatch = useDiscovery((s) => s.setMatch);
   const [acting, setActing] = useState(false);
@@ -42,12 +44,17 @@ export default function PerfilCompleto() {
   const { width } = useWindowDimensions();
 
   useEffect(() => {
-    if (cached) return;
+    // Vindo do chat já sabemos a conexão; nos outros casos (descoberta, feed, comentários)
+    // busca o perfil para saber se vocês já estão conectados.
+    if (cached && conexao) return;
     discoveryApi
       .profile(id)
-      .then(setPerson)
+      .then((p) => {
+        if (p) setPerson(p);
+        else if (!cached) setPerson(null);
+      })
       .finally(() => setLoading(false));
-  }, [id, cached]);
+  }, [id, cached, conexao]);
 
   const agir = async (tipo: 'curtir' | 'passar') => {
     if (!person || acting) return;
@@ -65,6 +72,15 @@ export default function PerfilCompleto() {
     } finally {
       setActing(false);
     }
+  };
+
+  /** Conexão ativa: pelo parâmetro (veio do chat) ou pelo servidor (veio do feed/comentários) */
+  const conexaoId = conexao ?? person?.conexaoId ?? undefined;
+  const abrirChat = () => {
+    if (!conexaoId) return;
+    // Do chat: só volta. De outro lugar: abre a conversa.
+    if (conexao && router.canGoBack()) router.back();
+    else router.push({ pathname: '/chat/[id]', params: { id: conexaoId } });
   };
 
   if (loading) {
@@ -199,18 +215,15 @@ export default function PerfilCompleto() {
         </View>
       </ScrollView>
 
-      {conexao ? (
-        <SafeAreaView edges={['bottom']} style={[styles.footer, { paddingHorizontal: spacing.lg - 4 }]}>
+      {conexaoId ? (
+        <SafeAreaView
+          edges={['bottom']}
+          style={[styles.footer, { paddingHorizontal: spacing.lg - 4, gap: spacing.sm }]}>
           <View style={{ flex: 1 }}>
-            <Button
-              title={`Mandar mensagem para ${person.nome.split(' ')[0]}`}
-              variant="success"
-              onPress={() =>
-                router.canGoBack()
-                  ? router.back()
-                  : router.replace({ pathname: '/chat/[id]', params: { id: conexao } })
-              }
-            />
+            <Button title="Convidar para treinar" variant="secondary" onPress={() => setInviting(true)} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Button title="Mensagem" variant="success" onPress={abrirChat} />
           </View>
         </SafeAreaView>
       ) : (
@@ -235,7 +248,7 @@ export default function PerfilCompleto() {
         onClose={() => setMenu(false)}
         title={person.nome}
         actions={[
-          ...(conexao
+          ...(conexaoId
             ? [
                 {
                   label: 'Desfazer conexão',
@@ -248,15 +261,23 @@ export default function PerfilCompleto() {
           { label: 'Bloquear', icon: 'ban-outline', destructive: true, onPress: () => setSafety('block') },
         ]}
       />
+      {conexaoId ? (
+        <InviteSheet
+          visible={inviting}
+          onClose={() => setInviting(false)}
+          conexaoId={conexaoId}
+          pessoa={{ id: person.id, nome: person.nome }}
+        />
+      ) : null}
       <SafetySheets
         mode={safety}
         onClose={() => setSafety(null)}
         person={{ id: person.id, nome: person.nome, foto: person.fotos[0] ?? null }}
-        conexaoId={conexao}
+        conexaoId={conexaoId}
         onDone={() => {
           // Sai do perfil (e do chat, se veio de lá) e volta para as abas
           if (router.canDismiss()) router.dismissAll();
-          else router.replace(conexao ? '/conexoes' : '/descobrir');
+          else router.replace(conexaoId ? '/conexoes' : '/descobrir');
         }}
       />
     </View>

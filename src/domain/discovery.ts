@@ -21,6 +21,8 @@ export type Candidate = {
   diasAtivos: number;
   sequencia: number;
   compatibilidade?: number;
+  /** Só no perfil completo: id da conexão ativa com essa pessoa (se houver) */
+  conexaoId?: string | null;
 };
 
 export type DiscoveryFilters = {

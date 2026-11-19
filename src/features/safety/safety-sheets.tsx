@@ -30,6 +30,8 @@ export function SafetySheets({
   person,
   conexaoId,
   mensagemId,
+  publicacaoId,
+  comentarioId,
   onDone,
 }: {
   mode: SafetyMode;
@@ -37,6 +39,9 @@ export function SafetySheets({
   person: ChatPerson;
   conexaoId?: string;
   mensagemId?: string;
+  /** Denúncia de uma publicação ou comentário do feed (US-14) */
+  publicacaoId?: string;
+  comentarioId?: string;
   /** Depois de bloquear ou desfazer: a tela decide para onde voltar */
   onDone: (what: 'blocked' | 'undone') => void;
 }) {
@@ -94,7 +99,15 @@ export function SafetySheets({
 
   const denunciar = () =>
     run(
-      () => connectionsApi.report({ userId: person.id, motivo: motivo!, descricao, mensagemId }),
+      () =>
+        connectionsApi.report({
+          userId: person.id,
+          motivo: motivo!,
+          descricao,
+          mensagemId,
+          publicacaoId,
+          comentarioId,
+        }),
       () => setStep('done'),
     );
 
@@ -157,7 +170,15 @@ export function SafetySheets({
       icon="flag-outline"
       tone="danger"
       title={`Denunciar ${primeiroNome}`}
-      message={mensagemId ? 'Você está denunciando uma mensagem.' : 'A denúncia é anônima.'}>
+      message={
+        mensagemId
+          ? 'Você está denunciando uma mensagem. A denúncia é anônima.'
+          : publicacaoId
+            ? 'Você está denunciando uma publicação. A denúncia é anônima.'
+            : comentarioId
+              ? 'Você está denunciando um comentário. A denúncia é anônima.'
+              : 'A denúncia é anônima.'
+      }>
       <View style={{ gap: spacing.sm }}>
         <Text variant="labelSmall" color={colors.text.secondary}>
           Motivo

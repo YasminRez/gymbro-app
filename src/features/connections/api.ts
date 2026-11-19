@@ -38,6 +38,8 @@ export type ConnectionsApi = {
     motivo: ReportReason;
     descricao?: string;
     mensagemId?: string;
+    publicacaoId?: string;
+    comentarioId?: string;
   }): Promise<void>;
 };
 
@@ -171,12 +173,14 @@ const supabaseApi: ConnectionsApi = {
     return (data ?? []) as BlockedUser[];
   },
 
-  async report({ userId, motivo, descricao, mensagemId }) {
+  async report({ userId, motivo, descricao, mensagemId, publicacaoId, comentarioId }) {
     const { error } = await supabase.rpc('denunciar', {
       p_denunciado: userId,
       p_motivo: motivo,
       p_descricao: descricao ?? null,
       p_mensagem: mensagemId ?? null,
+      p_publicacao: publicacaoId ?? null,
+      p_comentario: comentarioId ?? null,
     });
     if (error) throw mapError(error.message);
   },

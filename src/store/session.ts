@@ -4,6 +4,7 @@ import { CURRENT_TERMS_VERSION } from '@/constants/legal';
 import { GymLink } from '@/domain/gyms';
 import { missingForDiscovery, MissingItem, ProfileData } from '@/domain/profile';
 import { authApi, AuthUser } from '@/features/auth/api';
+import { engagementApi } from '@/features/engagement/api';
 import { profileApi } from '@/features/profile/api';
 
 /**
@@ -19,6 +20,10 @@ type SessionState = {
   gyms: GymLink[];
   missing: MissingItem[];
   profileComplete: boolean;
+  /** US-24 / RN-022: data da exclusão definitiva, se a conta estiver em carência */
+  deletionAt: string | null;
+  /** Conta desativada e com exclusão marcada para deletionAt */
+  setDeletion: (excluirEm: string | null) => void;
   /** Liga a escuta da sessão. Chamar uma vez no layout raiz. */
   init: () => () => void;
   /** Recarrega perfil e academias do banco */
@@ -45,22 +50,32 @@ export const useSession = create<SessionState>((set, get) => ({
   gyms: [],
   missing: [],
   profileComplete: false,
+  deletionAt: null,
 
   init: () =>
     authApi.subscribe(async (user) => {
       if (!user) {
-        set({ ready: true, user: null, signedIn: false, termsAccepted: false, ...derive(null, []) });
+        set({
+          ready: true,
+          user: null,
+          signedIn: false,
+          termsAccepted: false,
+          deletionAt: null,
+          ...derive(null, []),
+        });
         return;
       }
-      const [profile, gyms] = await Promise.all([
+      const [profile, gyms, status] = await Promise.all([
         profileApi.load(user.id).catch(() => null),
         profileApi.loadGyms(user.id).catch(() => []),
+        engagementApi.accountStatus().catch(() => null),
       ]);
       set({
         ready: true,
         user,
         signedIn: true,
         termsAccepted: user.termsVersion === CURRENT_TERMS_VERSION,
+        deletionAt: status?.status === 'desativado' ? status.excluirEm : null,
         ...derive(profile, gyms),
       });
     }),
@@ -74,6 +89,7 @@ export const useSession = create<SessionState>((set, get) => ({
 
   setProfile: (p) => set(derive(p, get().gyms)),
   setGyms: (g) => set(derive(get().profile, g)),
+  setDeletion: (deletionAt) => set({ deletionAt }),
 
   signOut: async () => {
     await authApi.signOut();

@@ -1,8 +1,9 @@
 import { router, usePreventRemove } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, View } from 'react-native';
+import { View } from 'react-native';
 
-import { Button, Header, Notice, Screen, Text } from '@/components/ui';
+import { Button, Header, Notice, Screen, Sheet, Text } from '@/components/ui';
+import { toast } from '@/components/ui/toast';
 import {
   emptyProfile,
   isProfileValid,
@@ -24,22 +25,13 @@ export default function EditarPerfil() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [leaving, setLeaving] = useState(false);
+  const [pendingLeave, setPendingLeave] = useState<(() => void) | null>(null);
   const dirty = profileChanged(draft, original);
   const missing = [...missingStep1(draft), ...missingStep2(draft), ...missingStep3(draft)];
 
   // "Deseja descartar as alterações?" ao voltar com mudanças não salvas
   usePreventRemove(dirty && !leaving, ({ repeat }) => {
-    Alert.alert('Descartar alterações', 'Deseja descartar as alterações?', [
-      { text: 'Continuar editando', style: 'cancel' },
-      {
-        text: 'Descartar',
-        style: 'destructive',
-        onPress: () => {
-          setLeaving(true);
-          repeat();
-        },
-      },
-    ]);
+    setPendingLeave(() => repeat);
   });
 
   // Depois de salvar, volta para o perfil
@@ -56,7 +48,7 @@ export default function EditarPerfil() {
       setProfile(saved);
       setDraft(saved);
       setLeaving(true);
-      Alert.alert(PROFILE_MESSAGES.updated);
+      toast(PROFILE_MESSAGES.updated);
     } catch (e) {
       setError(e instanceof ProfileError ? e.message : PROFILE_MESSAGES.generic);
     } finally {
@@ -98,6 +90,26 @@ export default function EditarPerfil() {
           <Interests value={draft} onChange={update} />
         </View>
       </View>
+      {/* US-05, cenário 4: "Deseja descartar as alterações?" */}
+      <Sheet
+        visible={!!pendingLeave}
+        onClose={() => setPendingLeave(null)}
+        icon="create-outline"
+        title="Descartar alterações?"
+        message="Você mudou seu perfil e ainda não salvou.">
+        <View style={{ gap: spacing.sm }}>
+          <Button
+            title="Descartar"
+            onPress={() => {
+              const go = pendingLeave;
+              setPendingLeave(null);
+              setLeaving(true);
+              go?.();
+            }}
+          />
+          <Button title="Continuar editando" variant="ghost" onPress={() => setPendingLeave(null)} />
+        </View>
+      </Sheet>
     </Screen>
   );
 }

@@ -20,6 +20,8 @@ import { toast } from '@/components/ui/toast';
 import { canComment, Comment, COMMENT_MAX, FEED_MESSAGES, FeedError, timeAgo } from '@/domain/feed';
 import { PersonAvatar } from '@/features/connections/person-avatar';
 import { feedApi } from '@/features/feed/api';
+import { openProfile } from '@/features/profile/open-profile';
+import { SafetyMode, SafetySheets } from '@/features/safety/safety-sheets';
 import { usePublish } from '@/store/publish';
 import { colors, radius, spacing, typography } from '@/theme';
 
@@ -39,6 +41,7 @@ export default function Comentarios() {
   const [error, setError] = useState<string | null>(null);
   const [menu, setMenu] = useState<Comment | null>(null);
   const [remove, setRemove] = useState<Comment | null>(null);
+  const [safety, setSafety] = useState<{ mode: SafetyMode; comment: Comment } | null>(null);
   const setCommentCount = usePublish((s) => s.setCommentCount);
   const input = useRef<TextInputInstance>(null);
 
@@ -119,14 +122,20 @@ export default function Comentarios() {
                 exiting={FadeOutLeft.duration(200)}
                 layout={LinearTransition}>
                 <Pressable
-                  onLongPress={item.podeRemover ? () => setMenu(item) : undefined}
+                  onLongPress={() => setMenu(item)}
                   delayLongPress={300}
-                  accessibilityHint={item.podeRemover ? 'Toque e segure para mais opções' : undefined}
+                  accessibilityHint="Toque e segure para mais opções"
                   style={({ pressed }) => [
                     styles.comment,
-                    pressed && item.podeRemover && { backgroundColor: colors.bg.elevated },
+                    pressed && { backgroundColor: colors.bg.elevated },
                   ]}>
-                  <PersonAvatar nome={item.autor.nome} foto={item.autor.foto} size={36} />
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={item.meu ? 'Ver meu perfil' : `Ver perfil de ${item.autor.nome}`}
+                    hitSlop={6}
+                    onPress={() => openProfile(item.autor.id, item.meu)}>
+                    <PersonAvatar nome={item.autor.nome} foto={item.autor.foto} size={36} />
+                  </Pressable>
                   <View style={{ flex: 1, gap: 2 }}>
                     <Text variant="labelSmall">
                       {item.meu ? 'Você' : item.autor.nome}
@@ -242,11 +251,25 @@ export default function Comentarios() {
             : menu
               ? [
                   {
-                    label: 'Remover',
-                    icon: 'trash-outline',
-                    destructive: true,
-                    onPress: () => setRemove(menu),
+                    label: 'Ver perfil',
+                    icon: 'person-outline' as const,
+                    onPress: () => openProfile(menu.autor.id),
                   },
+                  {
+                    label: 'Denunciar comentário',
+                    icon: 'flag-outline' as const,
+                    onPress: () => setSafety({ mode: 'report', comment: menu }),
+                  },
+                  ...(menu.podeRemover
+                    ? [
+                        {
+                          label: 'Remover',
+                          icon: 'trash-outline' as const,
+                          destructive: true,
+                          onPress: () => setRemove(menu),
+                        },
+                      ]
+                    : []),
                 ]
               : []
         }
@@ -261,6 +284,24 @@ export default function Comentarios() {
         message={remove ? `"${remove.texto.slice(0, 80)}${remove.texto.length > 80 ? '…' : ''}"` : undefined}
         confirmLabel={remove?.meu ? 'Excluir' : 'Remover'}
       />
+      {safety ? (
+        <SafetySheets
+          mode={safety.mode}
+          onClose={() => setSafety(null)}
+          person={{
+            id: safety.comment.autor.id,
+            nome: safety.comment.autor.nome,
+            foto: safety.comment.autor.foto,
+          }}
+          comentarioId={safety.mode === 'report' ? safety.comment.id : undefined}
+          onDone={() => {
+            // Bloqueou: os comentários dessa pessoa somem da lista
+            const autor = safety.comment.autor.id;
+            setSafety(null);
+            setList((cur) => cur?.filter((c) => c.autor.id !== autor) ?? cur);
+          }}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }

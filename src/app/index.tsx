@@ -12,10 +12,11 @@ import { colors } from '@/theme';
  * sem sessão → Entrar · termos novos → A5 · sem perfil mínimo → P1 · tudo ok → Descobrir
  */
 export default function Splash() {
-  const { ready, signedIn, termsAccepted, profileComplete, missing } = useSession();
+  const { ready, signedIn, termsAccepted, profileComplete, missing, deletionAt } = useSession();
 
   if (ready) {
     if (!signedIn) return <Redirect href="/entrar" />;
+    if (deletionAt) return <Redirect href="/conta-em-exclusao" />;
     if (!termsAccepted) return <Redirect href="/termos" />;
     if (!profileComplete) return <Redirect href={onboardingRoute(missing)} />;
     return <Redirect href="/descobrir" />;

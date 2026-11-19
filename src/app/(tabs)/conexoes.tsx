@@ -7,7 +7,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button, Notice, Text } from '@/components/ui';
 import { CHAT_MESSAGES, ConnectionItem, formatListTime, splitConnections } from '@/domain/chat';
+import { pendingReceived } from '@/domain/invite';
 import { connectionsApi } from '@/features/connections/api';
+import { invitesApi } from '@/features/invites/api';
 import { PersonAvatar } from '@/features/connections/person-avatar';
 import { colors, radius, spacing } from '@/theme';
 
@@ -20,8 +22,13 @@ export default function Conexoes() {
   const [items, setItems] = useState<ConnectionItem[] | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
+  const [convites, setConvites] = useState(0);
 
   const load = useCallback(async () => {
+    invitesApi
+      .list()
+      .then((l) => setConvites(pendingReceived(l)))
+      .catch(() => undefined);
     try {
       setItems(await connectionsApi.list());
       setError(false);
@@ -74,7 +81,26 @@ export default function Conexoes() {
         ListHeaderComponent={
           <View style={{ gap: spacing.lg }}>
             <View style={{ gap: 2 }}>
-              <Text variant="h1">Conexões</Text>
+              <View style={styles.titleRow}>
+                <Text variant="h1">Conexões</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Treinos combinados${convites ? `, ${convites} convites esperando resposta` : ''}`}
+                  onPress={() => router.push('/treinos')}
+                  style={styles.treinosBtn}>
+                  <Ionicons name="calendar-outline" size={18} color={colors.brand.green} />
+                  <Text variant="labelSmall" color={colors.brand.green}>
+                    Treinos
+                  </Text>
+                  {convites > 0 ? (
+                    <View style={styles.dot}>
+                      <Text variant="overline" color={colors.white}>
+                        {convites}
+                      </Text>
+                    </View>
+                  ) : null}
+                </Pressable>
+              </View>
               {!vazio ? (
                 <Text variant="body" color={colors.text.secondary}>
                   {novas.length + conversas.length}{' '}
@@ -201,6 +227,25 @@ const styles = StyleSheet.create({
   center: { flex: 1, backgroundColor: colors.bg.base, alignItems: 'center', justifyContent: 'center' },
   content: { padding: spacing.lg - 4, paddingBottom: spacing.xxl, flexGrow: 1 },
   newItem: { alignItems: 'center', gap: spacing.xs + 2 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  treinosBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: spacing.sm + 4,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+    backgroundColor: '#16241C',
+  },
+  dot: {
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    borderRadius: 9,
+    backgroundColor: colors.brand.red,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -100,6 +100,17 @@ export default function Perfil() {
         </View>
       ) : null}
 
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => router.push('/ranking')}
+        style={({ pressed }) => [styles.calendar, pressed && { opacity: 0.8 }]}>
+        <Ionicons name="trophy-outline" size={20} color={colors.brand.green} />
+        <Text variant="labelButton" style={{ flex: 1 }}>
+          Ranking da semana
+        </Text>
+        <Ionicons name="chevron-forward" size={18} color={colors.text.muted} />
+      </Pressable>
+
       <Button title="Editar perfil" variant="secondary" onPress={() => router.push('/editar-perfil')} />
       <Button title="Minha academia" variant="secondary" onPress={() => router.push('/minha-academia')} />
       <Button

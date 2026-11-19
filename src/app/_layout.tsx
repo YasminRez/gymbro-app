@@ -7,7 +7,9 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { OfflineBanner } from '@/components/offline-banner';
 import { Toaster } from '@/components/ui/toast';
+import { useNotificationsBridge } from '@/features/engagement/push';
 import { useSession } from '@/store/session';
 import { colors } from '@/theme';
 
@@ -36,7 +38,7 @@ export default function RootLayout() {
     Inter_600SemiBold,
     Inter_700Bold,
   });
-  const { ready, signedIn, termsAccepted, profileComplete, init } = useSession();
+  const { ready, signedIn, termsAccepted, profileComplete, deletionAt, init } = useSession();
 
   // Escuta a sessão (Supabase ou modo demonstração) — US-02, cenário 5
   useEffect(() => init(), [init]);
@@ -45,9 +47,12 @@ export default function RootLayout() {
     if (fontsLoaded) SplashScreen.hideAsync();
   }, [fontsLoaded]);
 
-  if (!fontsLoaded) return null;
+  const inApp = ready && signedIn && termsAccepted && !deletionAt;
 
-  const inApp = ready && signedIn && termsAccepted;
+  // US-21: badge, notificações locais/push e toque na notificação
+  useNotificationsBridge(inApp && profileComplete);
+
+  if (!fontsLoaded) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -65,8 +70,13 @@ export default function RootLayout() {
               <Stack.Screen name="(auth)" />
             </Stack.Protected>
 
+            {/* RN-022: conta em exclusão (30 dias de carência) — reativar ou sair */}
+            <Stack.Protected guard={ready && signedIn && !!deletionAt}>
+              <Stack.Screen name="conta-em-exclusao" options={{ gestureEnabled: false }} />
+            </Stack.Protected>
+
             {/* RN-005: termos novos bloqueiam o app até o aceite (US-03, cenário 2) */}
-            <Stack.Protected guard={ready && signedIn && !termsAccepted}>
+            <Stack.Protected guard={ready && signedIn && !termsAccepted && !deletionAt}>
               <Stack.Screen name="termos" options={{ gestureEnabled: false }} />
             </Stack.Protected>
 
@@ -93,15 +103,20 @@ export default function RootLayout() {
               <Stack.Screen name="ranking" />
               <Stack.Screen name="editar-perfil" />
               <Stack.Screen name="configuracoes" />
+              <Stack.Screen name="config-notificacoes" />
+              <Stack.Screen name="privacidade" />
+              <Stack.Screen name="excluir-conta" />
               <Stack.Screen name="bloqueados" />
               <Stack.Screen name="comentarios/[id]" />
               <Stack.Screen name="calendario" />
+              <Stack.Screen name="treinos" />
               <Stack.Screen
                 name="dia-concluido"
                 options={{ presentation: 'transparentModal', animation: 'fade', gestureEnabled: false }}
               />
             </Stack.Protected>
           </Stack>
+          <OfflineBanner />
           <Toaster />
         </ThemeProvider>
       </QueryClientProvider>

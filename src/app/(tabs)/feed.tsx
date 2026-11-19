@@ -19,8 +19,11 @@ import {
 import { PersonAvatar } from '@/features/connections/person-avatar';
 import { feedApi, Liker } from '@/features/feed/api';
 import { PostCard } from '@/features/feed/post-card';
+import { openProfile } from '@/features/profile/open-profile';
 import { SafetyMode, SafetySheets } from '@/features/safety/safety-sheets';
+import { useNotifications } from '@/store/notifications';
 import { usePublish } from '@/store/publish';
+import { useSession } from '@/store/session';
 import { colors, radius, spacing } from '@/theme';
 
 /**
@@ -41,9 +44,11 @@ export default function Feed() {
   const [deleting, setDeleting] = useState(false);
   const [likers, setLikers] = useState<{ post: Post; list: Liker[] | null } | null>(null);
   const [safety, setSafety] = useState<{ mode: SafetyMode; post: Post } | null>(null);
+  const myId = useSession((s) => s.user?.id);
   const feedVersion = usePublish((s) => s.feedVersion);
   const commentCounts = usePublish((s) => s.commentCounts);
   const bumpFeed = usePublish((s) => s.bumpFeed);
+  const unread = useNotifications((s) => s.unread);
   const reqId = useRef(0);
 
   const load = useCallback(async (t: FeedTab) => {
@@ -115,6 +120,8 @@ export default function Feed() {
     setLikers((cur) => (cur?.post.id === p.id ? { post: p, list } : cur));
   }, []);
 
+  const openAuthor = useCallback((p: Post) => openProfile(p.autor.id, p.minha), []);
+
   const openComments = useCallback(
     (p: Post) => router.push({ pathname: '/comentarios/[id]', params: { id: p.id } }),
     [],
@@ -159,10 +166,17 @@ export default function Feed() {
         <Text variant="h1">Feed</Text>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Notificações"
+          accessibilityLabel={unread > 0 ? `Notificações, ${unread} não lidas` : 'Notificações'}
           hitSlop={10}
           onPress={() => router.push('/notificacoes')}>
           <Ionicons name="notifications-outline" size={24} color={colors.text.primary} />
+          {unread > 0 ? (
+            <View style={styles.bellBadge}>
+              <Text variant="overline" color={colors.white} style={{ fontSize: 10, lineHeight: 12 }}>
+                {unread > 9 ? '9+' : unread}
+              </Text>
+            </View>
+          ) : null}
         </Pressable>
       </View>
       <View style={styles.tabs} accessibilityRole="tablist">
@@ -184,6 +198,7 @@ export default function Feed() {
               onLikers={openLikers}
               onComments={openComments}
               onMenu={setMenuPost}
+              onAuthor={openAuthor}
             />
           )}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
@@ -239,7 +254,12 @@ export default function Feed() {
             : menuPost
               ? [
                   {
-                    label: 'Denunciar',
+                    label: 'Ver perfil',
+                    icon: 'person-outline',
+                    onPress: () => openProfile(menuPost.autor.id),
+                  },
+                  {
+                    label: 'Denunciar publicação',
                     icon: 'flag-outline',
                     onPress: () => setSafety({ mode: 'report', post: menuPost }),
                   },
@@ -278,12 +298,20 @@ export default function Feed() {
         ) : (
           <View style={{ gap: spacing.sm, maxHeight: 360 }}>
             {(likers?.list ?? []).map((u) => (
-              <View key={u.id} style={styles.liker}>
+              <Pressable
+                key={u.id}
+                accessibilityRole="button"
+                onPress={() => {
+                  setLikers(null);
+                  openProfile(u.id, u.id === myId);
+                }}
+                style={({ pressed }) => [styles.liker, pressed && { opacity: 0.6 }]}>
                 <PersonAvatar nome={u.nome} foto={u.foto} size={40} />
                 <Text variant="labelButton" style={{ flex: 1 }} numberOfLines={1}>
                   {u.nome}
                 </Text>
-              </View>
+                <Ionicons name="chevron-forward" size={18} color={colors.text.muted} />
+              </Pressable>
             ))}
             {likers?.list?.length === 0 ? (
               <Text variant="body" color={colors.text.muted} style={{ textAlign: 'center' }}>
@@ -300,6 +328,7 @@ export default function Feed() {
           mode={safety.mode}
           onClose={() => setSafety(null)}
           person={{ id: safety.post.autor.id, nome: safety.post.autor.nome, foto: safety.post.autor.foto }}
+          publicacaoId={safety.mode === 'report' ? safety.post.id : undefined}
           onDone={() => {
             setSafety(null);
             bumpFeed();
@@ -311,6 +340,20 @@ export default function Feed() {
 }
 
 const styles = StyleSheet.create({
+  bellBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -6,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    backgroundColor: colors.brand.red,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: colors.bg.base,
+  },
   screen: { flex: 1, backgroundColor: colors.bg.base },
   top: {
     flexDirection: 'row',

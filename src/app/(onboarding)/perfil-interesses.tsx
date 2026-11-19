@@ -1,8 +1,7 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert } from 'react-native';
 
-import { Notice } from '@/components/ui';
+import { Button, Notice, Sheet } from '@/components/ui';
 import { missingStep3 } from '@/domain/profile';
 import { Interests } from '@/features/profile/forms';
 import { PROFILE_MESSAGES, ProfileError, profileApi } from '@/features/profile/api';
@@ -16,6 +15,7 @@ export default function PerfilInteresses() {
   const { user, setProfile } = useSession();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [criado, setCriado] = useState(false);
 
   const salvar = async () => {
     if (!user) return;
@@ -25,8 +25,7 @@ export default function PerfilInteresses() {
       const saved = await profileApi.save(user.id, draft);
       setProfile(saved);
       reset(saved);
-      Alert.alert('Perfil criado!', 'Agora escolha a sua academia.');
-      router.push('/localizacao');
+      setCriado(true);
     } catch (e) {
       setError(e instanceof ProfileError ? e.message : PROFILE_MESSAGES.generic);
     } finally {
@@ -49,6 +48,27 @@ export default function PerfilInteresses() {
         </Notice>
       ) : null}
       <Interests value={draft} onChange={update} />
+
+      {/* US-04, cenário 1: "Perfil criado! Agora escolha a sua academia." */}
+      <Sheet
+        visible={criado}
+        onClose={() => {
+          setCriado(false);
+          router.push('/localizacao');
+        }}
+        icon="checkmark-circle"
+        tone="success"
+        title="Perfil criado!"
+        message="Agora escolha a sua academia.">
+        <Button
+          title="Escolher academia"
+          variant="success"
+          onPress={() => {
+            setCriado(false);
+            router.push('/localizacao');
+          }}
+        />
+      </Sheet>
     </StepScreen>
   );
 }

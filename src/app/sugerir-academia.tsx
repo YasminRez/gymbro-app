@@ -1,10 +1,10 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert } from 'react-native';
 
-import { Button, Header, Input, Notice, Screen, Text } from '@/components/ui';
+import { Button, Header, Input, Notice, Screen, Sheet, Text } from '@/components/ui';
 import { GymRuleError } from '@/domain/gyms';
 import { PROFILE_MESSAGES, profileApi } from '@/features/profile/api';
+import { getCurrentCoords } from '@/lib/location';
 import { useSession } from '@/store/session';
 import { colors } from '@/theme';
 
@@ -19,19 +19,23 @@ export default function SugerirAcademia() {
   const [endereco, setEndereco] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [enviada, setEnviada] = useState(false);
+  const fechar = () => {
+    setEnviada(false);
+    if (router.canGoBack()) router.back();
+  };
   const ok = nome.trim().length >= 3 && endereco.trim().length >= 5;
 
   const enviar = async () => {
     setLoading(true);
     setError(null);
     try {
-      await profileApi.suggestGym(nome, endereco);
+      // Sem coordenadas a academia fica fora do filtro de distância da descoberta:
+      // usa a posição atual (sem pedir permissão de novo) como aproximação.
+      const loc = await getCurrentCoords({ ask: false }).catch(() => null);
+      await profileApi.suggestGym(nome, endereco, loc?.status === 'ok' ? loc.coords : undefined);
       await refresh();
-      Alert.alert(
-        'Sugestão enviada',
-        'Sua academia está "Em análise". Enquanto isso, ela já aparece como sua academia principal.',
-      );
-      if (router.canGoBack()) router.back();
+      setEnviada(true);
     } catch (e) {
       setError(e instanceof GymRuleError ? e.message : PROFILE_MESSAGES.generic);
     } finally {
@@ -61,6 +65,16 @@ export default function SugerirAcademia() {
           {error}
         </Notice>
       ) : null}
+      {/* US-07, cenário 4 */}
+      <Sheet
+        visible={enviada}
+        onClose={fechar}
+        icon="checkmark-circle"
+        tone="success"
+        title="Sugestão enviada"
+        message='Sua academia está "Em análise". Enquanto isso, ela já aparece como sua academia principal.'>
+        <Button title="Entendi" variant="success" onPress={fechar} />
+      </Sheet>
     </Screen>
   );
 }

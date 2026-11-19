@@ -25,7 +25,7 @@ Sem o `.env` preenchido o app roda em **modo demonstração** (veja abaixo).
 
 ## Supabase
 
-O projeto **gymbro** já está criado na organização _YasminRez's Org_, na região de São Paulo (`sa-east-1`). Os SQL de `supabase/migrations/` (0001 a 0005) já foram aplicados.
+O projeto **gymbro** já está criado na organização _YasminRez's Org_, na região de São Paulo (`sa-east-1`). Os SQL de `supabase/migrations/` (0001 a 0015) já foram aplicados.
 
 - Autenticação: "Confirm email" está desligado para facilitar os testes. O link de recuperação vale 30 minutos, e os Redirect URLs `exp://**` e `gymbro://**` estão cadastrados.
 - Storage: o bucket `fotos-perfil` é público para leitura, e cada usuário só envia arquivos para a própria pasta.
@@ -49,6 +49,17 @@ select apagar_perfis_teste();                         -- remove todos depois
 ```
 
 Ana e Diego já curtiram você: ao curtir de volta, aparece o "É um match!". As funções estão em `supabase/seed/perfis_teste.sql` e não podem ser chamadas pelo app.
+
+### Notificações push
+
+No Expo Go, as notificações aparecem enquanto o app está aberto (chegam pelo Realtime). Para receber push com o app fechado é preciso uma development build:
+
+```bash
+npx eas-cli init                              # cria o projectId no app.json
+npx eas-cli build --profile development       # gera o APK de desenvolvimento
+```
+
+Com o token registrado, o banco envia o push pelo Expo Push Service (trigger `enviar_push`, migration 0013).
 
 ### Novas migrações
 
