@@ -7,6 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { Toaster } from '@/components/ui/toast';
 import { useSession } from '@/store/session';
 import { colors } from '@/theme';
 
@@ -92,8 +93,10 @@ export default function RootLayout() {
               <Stack.Screen name="ranking" />
               <Stack.Screen name="editar-perfil" />
               <Stack.Screen name="configuracoes" />
+              <Stack.Screen name="bloqueados" />
             </Stack.Protected>
           </Stack>
+          <Toaster />
         </ThemeProvider>
       </QueryClientProvider>
     </GestureHandlerRootView>

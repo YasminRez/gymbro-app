@@ -270,3 +270,9 @@ const demoApi: DiscoveryApi = {
 };
 
 export const discoveryApi: DiscoveryApi = isSupabaseConfigured ? supabaseApi : demoApi;
+
+/** Modo demonstração: dados básicos de uma pessoa de exemplo (usado pelo chat) */
+export function demoPersonById(id: string): { id: string; nome: string; fotos: string[] } | null {
+  const p = PESSOAS.find((x) => x.id === id);
+  return p ? { id: p.id, nome: p.nome, fotos: p.fotos } : null;
+}
