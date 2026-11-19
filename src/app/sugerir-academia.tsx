@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Button, Header, Input, Notice, Screen, Sheet, Text } from '@/components/ui';
 import { GymRuleError } from '@/domain/gyms';
 import { PROFILE_MESSAGES, profileApi } from '@/features/profile/api';
+import { getCurrentCoords } from '@/lib/location';
 import { useSession } from '@/store/session';
 import { colors } from '@/theme';
 
@@ -29,7 +30,10 @@ export default function SugerirAcademia() {
     setLoading(true);
     setError(null);
     try {
-      await profileApi.suggestGym(nome, endereco);
+      // Sem coordenadas a academia fica fora do filtro de distância da descoberta:
+      // usa a posição atual (sem pedir permissão de novo) como aproximação.
+      const loc = await getCurrentCoords({ ask: false }).catch(() => null);
+      await profileApi.suggestGym(nome, endereco, loc?.status === 'ok' ? loc.coords : undefined);
       await refresh();
       setEnviada(true);
     } catch (e) {

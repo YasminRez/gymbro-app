@@ -28,12 +28,15 @@ export const PostCard = memo(function PostCard({
   onLikers,
   onComments,
   onMenu,
+  onAuthor,
 }: {
   post: Post;
   onLike: (p: Post, fromDoubleTap?: boolean) => void;
   onLikers: (p: Post) => void;
   onComments: (p: Post) => void;
   onMenu: (p: Post) => void;
+  /** Toque na foto ou no nome do autor */
+  onAuthor: (p: Post) => void;
 }) {
   const { width } = useWindowDimensions();
   const heart = useSharedValue(0);
@@ -74,19 +77,25 @@ export const PostCard = memo(function PostCard({
     <View style={styles.card}>
       {/* Autor */}
       <View style={styles.header}>
-        <PersonAvatar nome={post.autor.nome} foto={post.autor.foto} size={40} />
-        <View style={{ flex: 1 }}>
-          <Text variant="labelButton" numberOfLines={1}>
-            {post.minha ? 'Você' : post.autor.nome}
-          </Text>
-          <Text variant="caption" color={colors.text.muted} numberOfLines={1}>
-            {[post.academia, timeAgo(post.criadoEm)].filter(Boolean).join(' · ')}
-            {post.visibilidade === 'conexoes' ? ' · ' : ''}
-            {post.visibilidade === 'conexoes' ? (
-              <Ionicons name="people" size={11} color={colors.text.muted} />
-            ) : null}
-          </Text>
-        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={post.minha ? 'Ver meu perfil' : `Ver perfil de ${post.autor.nome}`}
+          onPress={() => onAuthor(post)}
+          style={styles.author}>
+          <PersonAvatar nome={post.autor.nome} foto={post.autor.foto} size={40} />
+          <View style={{ flex: 1 }}>
+            <Text variant="labelButton" numberOfLines={1}>
+              {post.minha ? 'Você' : post.autor.nome}
+            </Text>
+            <Text variant="caption" color={colors.text.muted} numberOfLines={1}>
+              {[post.academia, timeAgo(post.criadoEm)].filter(Boolean).join(' · ')}
+              {post.visibilidade === 'conexoes' ? ' · ' : ''}
+              {post.visibilidade === 'conexoes' ? (
+                <Ionicons name="people" size={11} color={colors.text.muted} />
+              ) : null}
+            </Text>
+          </View>
+        </Pressable>
         {post.autor.sequencia > 0 ? (
           <View style={styles.streak} accessibilityLabel={`Sequência de ${post.autor.sequencia} dias`}>
             <Text variant="labelSmall" color={colors.brand.green}>
@@ -199,6 +208,7 @@ function Tag({ icon, text }: { icon: 'barbell-outline' | 'time-outline'; text: s
 }
 
 const styles = StyleSheet.create({
+  author: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm + 4 },
   card: { backgroundColor: colors.bg.base, paddingBottom: spacing.md },
   header: {
     flexDirection: 'row',

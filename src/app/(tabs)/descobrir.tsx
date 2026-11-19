@@ -3,11 +3,12 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
-import { Button, Card, Logo, Notice, Screen, Text } from '@/components/ui';
+import { ActionSheet, Button, Card, Logo, Notice, Screen, Text } from '@/components/ui';
 import { Candidate, DISCOVERY_MESSAGES, DiscoveryError, hasFilters } from '@/domain/discovery';
 import { DAILY_LIKE_LIMIT } from '@/domain/rules';
 import { discoveryApi, setDemoProfile } from '@/features/discovery/api';
 import { SwipeDeck, SwipeDeckHandle } from '@/features/discovery/swipe-deck';
+import { SafetyMode, SafetySheets } from '@/features/safety/safety-sheets';
 import { useDiscovery } from '@/store/discovery';
 import { useSession } from '@/store/session';
 import { colors, spacing } from '@/theme';
@@ -23,6 +24,8 @@ export default function Descobrir() {
   const [limitReached, setLimitReached] = useState(false);
   const [last, setLast] = useState<{ person: Candidate; tipo: 'curtir' | 'passar' } | null>(null);
   const deck = useRef<SwipeDeckHandle>(null);
+  const [menuPerson, setMenuPerson] = useState<Candidate | null>(null);
+  const [safety, setSafety] = useState<{ mode: SafetyMode; person: Candidate } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -121,6 +124,7 @@ export default function Descobrir() {
             gymName={mainGym?.nome}
             onSwipe={handleSwipe}
             onOpen={(p) => router.push({ pathname: '/perfil/[id]', params: { id: p.id } })}
+            onMenu={setMenuPerson}
           />
         ) : (
           <Card style={styles.empty}>
@@ -158,6 +162,47 @@ export default function Descobrir() {
           onPress={curtir}
         />
       </View>
+
+      <ActionSheet
+        visible={!!menuPerson}
+        onClose={() => setMenuPerson(null)}
+        title={menuPerson?.nome}
+        actions={
+          menuPerson
+            ? [
+                {
+                  label: 'Ver perfil completo',
+                  icon: 'person-outline',
+                  onPress: () => router.push({ pathname: '/perfil/[id]', params: { id: menuPerson.id } }),
+                },
+                {
+                  label: 'Denunciar',
+                  icon: 'flag-outline',
+                  onPress: () => setSafety({ mode: 'report', person: menuPerson }),
+                },
+                {
+                  label: 'Bloquear',
+                  icon: 'ban-outline',
+                  destructive: true,
+                  onPress: () => setSafety({ mode: 'block', person: menuPerson }),
+                },
+              ]
+            : []
+        }
+      />
+      {safety ? (
+        <SafetySheets
+          mode={safety.mode}
+          onClose={() => setSafety(null)}
+          person={{ id: safety.person.id, nome: safety.person.nome, foto: safety.person.fotos[0] ?? null }}
+          onDone={() => {
+            // Bloqueou: a pessoa sai da pilha de cards
+            const id = safety.person.id;
+            setSafety(null);
+            setPeople((list) => list.filter((p) => p.id !== id));
+          }}
+        />
+      ) : null}
     </Screen>
   );
 }

@@ -1,3 +1,4 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { forwardRef, useEffect, useImperativeHandle } from 'react';
 import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
@@ -13,7 +14,7 @@ import { scheduleOnRN } from 'react-native-worklets';
 
 import { Text } from '@/components/ui';
 import { Candidate } from '@/domain/discovery';
-import { colors, radius } from '@/theme';
+import { colors, radius, spacing } from '@/theme';
 
 import { ProfileCard } from './profile-card';
 
@@ -28,10 +29,12 @@ type Props = {
   gymName?: string;
   onSwipe: (person: Candidate, tipo: 'curtir' | 'passar') => void;
   onOpen: (person: Candidate) => void;
+  /** Menu ⋯ do card: denunciar / bloquear (US-13, US-14) */
+  onMenu?: (person: Candidate) => void;
 };
 
 export const SwipeDeck = forwardRef<SwipeDeckHandle, Props>(function SwipeDeck(
-  { people, gymName, onSwipe, onOpen },
+  { people, gymName, onSwipe, onOpen, onMenu },
   ref,
 ) {
   const { width } = useWindowDimensions();
@@ -112,6 +115,16 @@ export const SwipeDeck = forwardRef<SwipeDeckHandle, Props>(function SwipeDeck(
             accessibilityHint="Deslize para a direita para curtir ou para a esquerda para passar">
             <ProfileCard person={top} gymName={gymName} />
           </Pressable>
+          {onMenu ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Mais opções sobre ${top.nome}`}
+              hitSlop={10}
+              onPress={() => onMenu(top)}
+              style={styles.menuBtn}>
+              <Ionicons name="ellipsis-horizontal" size={20} color="#fff" />
+            </Pressable>
+          ) : null}
           <Animated.View style={[styles.stamp, styles.like, likeStyle]} pointerEvents="none">
             <Text variant="h2" color={colors.brand.green}>
               CURTIR
@@ -129,6 +142,17 @@ export const SwipeDeck = forwardRef<SwipeDeckHandle, Props>(function SwipeDeck(
 });
 
 const styles = StyleSheet.create({
+  menuBtn: {
+    position: 'absolute',
+    top: spacing.md,
+    right: spacing.md,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
   stamp: {
     position: 'absolute',
     top: 56,
