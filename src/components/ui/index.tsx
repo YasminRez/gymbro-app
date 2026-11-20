@@ -3,7 +3,6 @@ import { router } from 'expo-router';
 import { ComponentProps, forwardRef, ReactNode, useState } from 'react';
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
   Pressable,
   StyleSheet,
   Text as RNText,
@@ -18,7 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors, radius, spacing, typography, TypographyVariant } from '@/theme';
 
-import { KeyboardAwareScroll, useEnsureFocusedVisible } from './keyboard';
+import { KeyboardAvoider, KeyboardAwareScroll, useEnsureFocusedVisible } from './keyboard';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -53,11 +52,11 @@ export function Screen({ children, scroll = false, style, footer }: ScreenProps)
   );
   return (
     <SafeAreaView style={styles.screen}>
-      {/* Android edge-to-edge: a janela não encolhe com o teclado, então "padding" nas duas plataformas */}
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
+      {/* O conteúdo e o rodapé ficam acima do teclado (ver keyboard.tsx) */}
+      <KeyboardAvoider>
         {content}
         {footer ? <View style={styles.footer}>{footer}</View> : null}
-      </KeyboardAvoidingView>
+      </KeyboardAvoider>
     </SafeAreaView>
   );
 }

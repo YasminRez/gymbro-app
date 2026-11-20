@@ -1,12 +1,13 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { ComponentProps, ReactNode } from 'react';
-import { KeyboardAvoidingView, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, SlideInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, radius, spacing } from '@/theme';
 
 import { Button, Text } from './index';
+import { KeyboardAvoider } from './keyboard';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -43,7 +44,7 @@ export function Sheet({
   return (
     <Modal visible={visible} transparent animationType="none" statusBarTranslucent onRequestClose={onClose}>
       {/* O painel sobe junto com o teclado (campos de denúncia, convite etc.) */}
-      <KeyboardAvoidingView behavior="padding" style={styles.root}>
+      <KeyboardAvoider style={styles.root}>
         <Animated.View entering={FadeIn.duration(200)} style={StyleSheet.absoluteFill}>
           <Pressable
             accessibilityRole="button"
@@ -78,7 +79,7 @@ export function Sheet({
           ) : null}
           {children}
         </Animated.View>
-      </KeyboardAvoidingView>
+      </KeyboardAvoider>
     </Modal>
   );
 }

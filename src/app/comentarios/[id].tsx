@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   StyleSheet,
@@ -16,6 +15,7 @@ import Animated, { FadeInDown, FadeOutLeft, LinearTransition } from 'react-nativ
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActionSheet, ConfirmSheet, Header, Text } from '@/components/ui';
+import { KeyboardAvoider } from '@/components/ui/keyboard';
 import { toast } from '@/components/ui/toast';
 import { canComment, Comment, COMMENT_MAX, FEED_MESSAGES, FeedError, timeAgo } from '@/domain/feed';
 import { PersonAvatar } from '@/features/connections/person-avatar';
@@ -107,7 +107,7 @@ export default function Comentarios() {
       <View style={{ paddingHorizontal: spacing.lg - 4 }}>
         <Header title="Comentários" />
       </View>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
+      <KeyboardAvoider>
         {list === null ? (
           <ActivityIndicator color={colors.brand.red} style={{ marginTop: spacing.xl }} />
         ) : (
@@ -231,7 +231,7 @@ export default function Comentarios() {
             )}
           </Pressable>
         </View>
-      </KeyboardAvoidingView>
+      </KeyboardAvoider>
 
       <ActionSheet
         visible={!!menu}

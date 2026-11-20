@@ -1,26 +1,33 @@
-import { createContext, ReactNode, useCallback, useContext, useEffect, useRef } from 'react';
+import { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import {
+  Dimensions,
   Keyboard,
+  KeyboardEvent,
+  LayoutAnimation,
   LayoutChangeEvent,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Platform,
   ScrollView,
   ScrollViewInstance,
+  StatusBar,
   StyleProp,
   TextInput,
   View,
   ViewInstance,
   ViewStyle,
 } from 'react-native';
+import { initialWindowMetrics } from 'react-native-safe-area-context';
 
 /**
  * Teclado sem tampar campos (RNF-008/RNF-011).
  *
- * No Android o app é edge-to-edge: a janela não encolhe quando o teclado abre,
- * então as telas usam KeyboardAvoidingView com behavior="padding" nas duas
- * plataformas (recomendação do guia de teclado do Expo). Isso encolhe a área
- * visível; este ScrollView rola até o campo focado, com folga, quando o teclado
+ * No Android o app é edge-to-edge: a janela não encolhe quando o teclado abre.
+ * O KeyboardAvoidingView do React Native calcula o deslocamento pelo screenY do
+ * teclado, que no Android edge-to-edge pode vir sem descontar o teclado (aí o
+ * deslocamento dá 0 e a tela não sobe). O KeyboardAvoider abaixo calcula pela
+ * altura do teclado e pela posição real da view na janela, nas duas plataformas.
+ * O KeyboardAwareScroll rola até o campo focado, com folga, quando o teclado
  * abre, quando a área muda de tamanho ou quando outro campo recebe foco.
  */
 
@@ -34,6 +41,62 @@ const KeyboardScrollContext = createContext<Ensure | null>(null);
 /** Chamar no onFocus de um campo para garantir que ele fique visível */
 export function useEnsureFocusedVisible(): Ensure {
   return useContext(KeyboardScrollContext) ?? noop;
+}
+
+/** Topo do teclado em coordenadas da janela */
+function keyboardTop(e: KeyboardEvent): number {
+  if (Platform.OS === 'ios') return e.endCoordinates.screenY;
+  // Android: a altura informada já desconta a barra de navegação
+  const navBar = initialWindowMetrics?.insets.bottom ?? 0;
+  return Dimensions.get('screen').height - navBar - e.endCoordinates.height;
+}
+
+/**
+ * Substitui o KeyboardAvoidingView: adiciona embaixo exatamente o espaço que o
+ * teclado cobre desta view, para o conteúdo e o rodapé ficarem acima dele.
+ */
+export function KeyboardAvoider({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
+  const ref = useRef<ViewInstance>(null);
+  const [pad, setPad] = useState(0);
+
+  useEffect(() => {
+    const ios = Platform.OS === 'ios';
+    const onShow = (e: KeyboardEvent) => {
+      const top = keyboardTop(e);
+      ref.current?.measureInWindow((_x, y, _w, h) => {
+        // Android: measureInWindow conta a partir de baixo da barra de status
+        const offset = ios ? 0 : (StatusBar.currentHeight ?? 0);
+        const next = Math.max(0, Math.round(y + h + offset - top));
+        if (ios && e.duration) {
+          LayoutAnimation.configureNext({
+            duration: e.duration,
+            update: { type: LayoutAnimation.Types.keyboard },
+          });
+        }
+        setPad(next);
+      });
+    };
+    const onHide = (e: KeyboardEvent) => {
+      if (ios && e?.duration) {
+        LayoutAnimation.configureNext({
+          duration: e.duration,
+          update: { type: LayoutAnimation.Types.keyboard },
+        });
+      }
+      setPad(0);
+    };
+    const subs = [
+      Keyboard.addListener(ios ? 'keyboardWillShow' : 'keyboardDidShow', onShow),
+      Keyboard.addListener(ios ? 'keyboardWillHide' : 'keyboardDidHide', onHide),
+    ];
+    return () => subs.forEach((s) => s.remove());
+  }, []);
+
+  return (
+    <View ref={ref} style={[{ flex: 1 }, style, { paddingBottom: pad }]}>
+      {children}
+    </View>
+  );
 }
 
 type Measurable = {

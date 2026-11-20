@@ -2,20 +2,12 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import NetInfo from '@react-native-community/netinfo';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StyleSheet,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, FlatList, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActionSheet, Text } from '@/components/ui';
+import { KeyboardAvoider } from '@/components/ui/keyboard';
 import {
   canSend,
   CHAT_MESSAGES,
@@ -268,7 +260,7 @@ export default function Chat() {
         </View>
       ) : null}
 
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={0}>
+      <KeyboardAvoider>
         <FlatList
           inverted
           data={rows}
@@ -362,7 +354,7 @@ export default function Chat() {
             </Text>
           </View>
         )}
-      </KeyboardAvoidingView>
+      </KeyboardAvoider>
 
       <ActionSheet
         visible={menu}
